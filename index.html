@@ -1538,13 +1538,20 @@
                 <div class="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 mb-6">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                         <div>
-                            <h4 class="text-sm font-black flex items-center gap-2"><i class="fa-solid fa-users-gear text-purple-600"></i> User Control & Live Activity Engine</h4>
-                            <p class="text-xs text-neutral-500 mt-0.5">Real-time sync: Additions, updates, and deletions reflect instantly across all devices.</p>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="text-sm font-black flex items-center gap-2"><i class="fa-solid fa-users-gear text-purple-600"></i> User Control & Live Activity Engine</h4>
+                                <span id="admin-users-total-pill" class="px-2.5 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">Total Users: 0</span>
+                            </div>
+                            <p class="text-xs text-neutral-500 mt-0.5">Inspect every user's profile, expenses, income, Udhar Khata, and shopping activity live from cloud.</p>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-wrap">
                             <button onclick="forceAdminCloudReSync()" class="px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold"><i class="fa-solid fa-cloud-arrow-down text-primary-600"></i> Force Cloud Sync</button>
                             <button onclick="openAdminAddUserModal()" class="px-3.5 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold"><i class="fa-solid fa-user-plus"></i> Add New User</button>
                         </div>
+                    </div>
+                    <div class="mb-3 relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-neutral-400 text-xs"></i>
+                        <input type="text" id="admin-user-search-input" oninput="renderAdminUsersList()" placeholder="Search users by name, mobile number, or email..." class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold focus:outline-none focus:border-purple-500">
                     </div>
                     <div id="admin-users-list" class="space-y-3"></div>
                 </div>
@@ -2083,35 +2090,116 @@
     </div>
 
     <!-- Admin User Inspector Modal -->
-    <div id="admin-user-inspector-modal" class="fixed inset-0 z-50 bg-neutral-950/80 backdrop-blur-xl hidden items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md p-6 rounded-[2rem] shadow-2xl relative bg-white/95 dark:bg-neutral-900/95">
+    <div id="admin-user-inspector-modal" class="fixed inset-0 z-50 bg-neutral-950/80 backdrop-blur-xl hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="glass-card w-full max-w-2xl p-6 rounded-[2rem] shadow-2xl relative bg-white/95 dark:bg-neutral-900/95 my-auto max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-neutral-200 dark:border-neutral-800">
+                <h4 id="admin-inspector-title" class="text-sm sm:text-base font-black flex items-center gap-2"><i class="fa-solid fa-user-shield text-purple-600"></i> User Complete Activity Report</h4>
+                <button type="button" onclick="closeAdminUserInspector()" class="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400 text-xs flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="admin-inspector-body" class="text-xs space-y-4 text-neutral-700 dark:text-neutral-200"></div>
+            <div class="mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-800 flex justify-end">
+                <button type="button" onclick="closeAdminUserInspector()" class="px-6 py-2.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-bold">Close Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Sponsored Banner Slide Add / Edit Modal -->
+    <div id="admin-banner-slide-modal" class="fixed inset-0 z-50 bg-neutral-950/80 backdrop-blur-xl hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="glass-card w-full max-w-lg p-6 rounded-[2rem] shadow-2xl relative bg-white/95 dark:bg-neutral-900/95 my-auto">
             <div class="flex items-center justify-between mb-4 pb-2 border-b border-neutral-200 dark:border-neutral-800">
-                <h4 class="text-sm font-black flex items-center gap-2"><i class="fa-solid fa-user-shield text-purple-600"></i> User Details</h4>
-                <button type="button" onclick="closeAdminUserInspector()" class="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400 text-xs flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                <h4 id="admin-banner-modal-title" class="text-sm font-black flex items-center gap-2"><i class="fa-solid fa-rectangle-ad text-primary-600"></i> Edit Sponsored Banner Slide</h4>
+                <button type="button" onclick="closeAdminBannerModal()" class="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400 text-xs flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div id="admin-inspector-body" class="text-xs space-y-2 text-neutral-700 dark:text-neutral-200"></div>
-            <div class="mt-4">
-                <button type="button" onclick="closeAdminUserInspector()" class="w-full py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold">Close</button>
-            </div>
+            <form onsubmit="saveAdminBannerSlideForm(event)" class="space-y-3">
+                <input type="hidden" id="admin-banner-edit-index" value="-1">
+                <div>
+                    <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Banner Image URL (Optional — Leave blank for Gradient Card)</label>
+                    <input type="url" id="admin-banner-image-url" oninput="previewAdminBannerImage(this.value)" placeholder="https://blogger.googleusercontent.com/..." class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-mono">
+                    <div id="admin-banner-img-preview-box" class="mt-2 hidden">
+                        <img id="admin-banner-img-preview" src="" alt="Banner Preview" class="w-full h-28 object-cover rounded-xl border border-neutral-200 dark:border-neutral-700">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Badge Tag</label>
+                        <input type="text" id="admin-banner-badge" placeholder="e.g. KHATAFLOW PRO" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Target Tab on Click</label>
+                        <select id="admin-banner-target-tab" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold">
+                            <option value="dashboard">Dashboard</option>
+                            <option value="udhar">Udhar Khata</option>
+                            <option value="grocery">Shopping Checklist</option>
+                            <option value="hub">Friends Hub</option>
+                            <option value="transactions">History</option>
+                            <option value="analytics">Analytics & Reports</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Slide Title *</label>
+                    <input type="text" id="admin-banner-title" required placeholder="e.g. हिसाब-किताब को बनाएं आसान" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Subtitle / Description</label>
+                    <input type="text" id="admin-banner-subtitle" placeholder="e.g. आय, खर्च, खरीदारी और उधार खाता का पूरा रिकॉर्ड..." class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-medium">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">CTA Button Text</label>
+                        <input type="text" id="admin-banner-cta" placeholder="e.g. Explore Now" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Card Gradient Theme</label>
+                        <select id="admin-banner-gradient" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold">
+                            <option value="from-primary-700 via-primary-600 to-emerald-600">Royal Blue → Emerald</option>
+                            <option value="from-rose-600 via-amber-600 to-primary-600">Rose → Amber → Blue</option>
+                            <option value="from-emerald-700 via-teal-600 to-primary-600">Emerald → Teal</option>
+                            <option value="from-indigo-700 via-purple-600 to-primary-600">Indigo → Purple</option>
+                            <option value="from-amber-600 via-orange-600 to-rose-600">Amber → Sunset Rose</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button type="button" onclick="closeAdminBannerModal()" class="py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold">Cancel</button>
+                    <button type="submit" class="py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold">Save Slide</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Main Synchronous Application Script -->
     <script>
-        let appState = JSON.parse(localStorage.getItem('khataflow_state')) || {
-            userProfile: { name: 'Amit Kumar', phone: '9876543210', email: '', upi: '9876543210@upi', businessName: '', gstin: '', address: '', cityPin: '', registered: false, dateJoined: new Date().toISOString() },
-            merchantPhone: '9876543210',
-            merchantUpi: '9876543210@upi',
-            budget: 15000,
-            categoryBudgets: {},
-            transactions: [],
-            splitMembers: [{ name: 'You', upi: '9876543210@upi' }],
-            splitBills: [],
-            groceryItems: [],
-            groceryInvoices: [],
-            udharCustomers: [],
-            updatedAt: Date.now()
-        };
+        function createEmptyAppState() {
+            return {
+                userProfile: { name: '', phone: '', email: '', upi: '', businessName: '', gstin: '', address: '', cityPin: '', registered: false, dateJoined: new Date().toISOString() },
+                merchantPhone: '',
+                merchantUpi: '',
+                budget: 15000,
+                categoryBudgets: {},
+                transactions: [],
+                splitMembers: [],
+                splitBills: [],
+                groceryItems: [],
+                groceryInvoices: [],
+                udharCustomers: [],
+                updatedAt: 0
+            };
+        }
+
+        let appState = (() => {
+            try {
+                const raw = localStorage.getItem('khataflow_state');
+                if (!raw) return createEmptyAppState();
+                const parsed = JSON.parse(raw);
+                // Purge legacy hardcoded demo profile if not explicitly owned by an active session
+                const sess = JSON.parse(localStorage.getItem('khataflow_auth_session') || 'null');
+                if (!sess || !sess.isLoggedIn) return createEmptyAppState();
+                return { ...createEmptyAppState(), ...parsed };
+            } catch (e) {
+                return createEmptyAppState();
+            }
+        })();
 
         let pieChartInstance = null, barChartInstance = null, paymentModeChartInstance = null;
         let incomeExpenseBarChartInstance = null, polarCategoryChartInstance = null;
@@ -2131,14 +2219,15 @@
 
         function ensureUnifiedPrimaryMember() {
             const primaryName = getPrimaryUserName();
-            const cleanPhone = extractCleanPhone(appState.userProfile?.phone || appState.merchantPhone || '');
-            const primaryUpi = appState.userProfile?.upi || appState.merchantUpi || (cleanPhone ? `${cleanPhone}@upi` : '9876543210@upi');
+            const session = getAuthSession();
+            const cleanPhone = extractCleanPhone(session?.phone || appState.userProfile?.phone || appState.merchantPhone || session?.username || '');
+            const primaryUpi = appState.userProfile?.upi || appState.merchantUpi || (cleanPhone ? `${cleanPhone}@upi` : '');
             if (!Array.isArray(appState.splitMembers) || appState.splitMembers.length === 0) {
                 appState.splitMembers = [{ name: primaryName, upi: primaryUpi }];
                 return;
             }
             const first = appState.splitMembers[0];
-            if (first.name === 'You' || first.name === primaryName) {
+            if (first.name === 'You' || first.name === primaryName || first.name === 'Amit Kumar') {
                 first.name = primaryName;
                 first.upi = primaryUpi;
             } else if (!appState.splitMembers.some(m => m.name === primaryName)) {
@@ -2300,24 +2389,30 @@
 
         function propagateUserProfileAcrossApp() {
             const session = getAuthSession();
+            if (!session || !session.isLoggedIn) return;
             const p = appState.userProfile || {};
-            const cleanPhone = extractCleanPhone(p.phone || appState.merchantPhone || session.username || '');
-            const displayName = (p.name && p.name.trim()) ? p.name.trim() : (session.name || 'Amit Kumar');
+            const sessionPhone = extractCleanPhone(session.phone || session.username || '');
+            const cleanPhone = sessionPhone || extractCleanPhone(p.phone || appState.merchantPhone || '');
+            const displayName = (session.name && session.name.trim() && session.name !== sessionPhone)
+                ? session.name.trim()
+                : ((p.name && p.name.trim()) ? p.name.trim() : (session.name || cleanPhone || 'User'));
+            const resolvedEmail = (session.email || p.email || '').trim();
+            const resolvedUpi = p.upi || (cleanPhone ? `${cleanPhone}@upi` : '');
+
             appState.userProfile = {
                 ...p,
                 name: displayName,
-                phone: cleanPhone || p.phone || '',
-                email: p.email || session.email || '',
-                upi: p.upi || (cleanPhone ? `${cleanPhone}@upi` : '9876543210@upi')
+                phone: cleanPhone,
+                email: resolvedEmail,
+                upi: resolvedUpi
             };
-            if (cleanPhone) {
-                appState.merchantPhone = cleanPhone;
-                appState.merchantUpi = `${cleanPhone}@upi`;
-                const phoneInp = document.getElementById('grocery-merchant-phone');
-                if (phoneInp && !phoneInp.value) {
-                    phoneInp.value = cleanPhone;
-                    handlePhoneUpiInput(cleanPhone);
-                }
+            appState.merchantPhone = cleanPhone;
+            appState.merchantUpi = resolvedUpi;
+
+            const phoneInp = document.getElementById('grocery-merchant-phone');
+            if (phoneInp && cleanPhone) {
+                phoneInp.value = cleanPhone;
+                handlePhoneUpiInput(cleanPhone);
             }
             ensureUnifiedPrimaryMember();
             updateAuthUI();
@@ -2402,6 +2497,7 @@
                     let uid = `user_${Date.now()}`;
                     let userEmail = cleanId.includes('@') ? cleanId : '';
                     let displayName = cleanDigits || identifier;
+                    let resolvedPhone = cleanDigits.length === 10 ? cleanDigits : '';
 
                     if (typeof window.firebaseLogin === 'function') {
                         const cred = await window.firebaseLogin(identifier, password);
@@ -2409,16 +2505,30 @@
                             uid = cred.user.uid;
                             userEmail = cred.user.email || userEmail;
                             displayName = cred.user.displayName || displayName;
+                            if (cred.user.phone) resolvedPhone = extractCleanPhone(cred.user.phone);
                         }
                     }
 
-                    // Reset updatedAt so login force-loads latest cloud state cleanly
+                    // Completely reset local state to the newly signed-in user before cloud fetch
+                    appState = createEmptyAppState();
+                    appState.userProfile = {
+                        name: displayName,
+                        phone: resolvedPhone,
+                        email: userEmail,
+                        upi: resolvedPhone ? `${resolvedPhone}@upi` : '',
+                        registered: true,
+                        dateJoined: new Date().toISOString()
+                    };
+                    appState.merchantPhone = resolvedPhone;
+                    appState.merchantUpi = resolvedPhone ? `${resolvedPhone}@upi` : '';
+                    appState.splitMembers = [{ name: displayName, upi: resolvedPhone ? `${resolvedPhone}@upi` : '' }];
                     appState.updatedAt = 0;
 
                     setAuthSession({
                         isLoggedIn: true,
                         role: 'user',
-                        username: cleanDigits || identifier,
+                        username: resolvedPhone || userEmail || identifier,
+                        phone: resolvedPhone,
                         email: userEmail,
                         name: displayName,
                         uid
@@ -2459,12 +2569,10 @@
                 await window.firebaseLogout().catch(() => {});
             }
             localStorage.removeItem('khataflow_auth_session');
-            appState.transactions = [];
-            appState.groceryItems = [];
-            appState.splitBills = [];
-            appState.udharCustomers = [];
-            appState.updatedAt = 0;
-            localStorage.setItem('khataflow_state', JSON.stringify(appState));
+            localStorage.removeItem('khataflow_state');
+            appState = createEmptyAppState();
+            const phoneInp = document.getElementById('grocery-merchant-phone');
+            if (phoneInp) phoneInp.value = '';
             toggleSideMenu(false);
             enforceAuthGate();
             showToast('Signed out safely');
@@ -3066,6 +3174,7 @@
             if (tabId === 'hub') renderSplitter();
             if (tabId === 'analytics') updateCharts();
             if (tabId === 'admin') {
+                if (typeof window.fetchFirestoreUsersNow === 'function') window.fetchFirestoreUsersNow();
                 if (typeof updateAdminDashboardMetrics === 'function') updateAdminDashboardMetrics();
                 if (typeof renderAdminUsersList === 'function') renderAdminUsersList();
                 if (typeof renderAdminAdsList === 'function') renderAdminAdsList();
@@ -5013,29 +5122,353 @@
         }
 
         function updateAdminDashboardMetrics() {
-            const users = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]');
-            const totalVol = (appState.transactions || []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
-            if (document.getElementById('admin-stat-tx-count')) document.getElementById('admin-stat-tx-count').textContent = (appState.transactions || []).length;
-            if (document.getElementById('admin-stat-volume')) document.getElementById('admin-stat-volume').textContent = `₹${totalVol.toLocaleString('en-IN')}`;
+            const users = getDeduplicatedAdminUsers();
+            const workspaces = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
+            let globalTxCount = (appState.transactions || []).length;
+            let globalVol = (appState.transactions || []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+            const wsValues = Object.values(workspaces);
+            if (wsValues.length > 0) {
+                globalTxCount = 0;
+                globalVol = 0;
+                wsValues.forEach(ws => {
+                    const txs = Array.isArray(ws.transactions) ? ws.transactions : (typeof ws.transactions === 'string' ? JSON.parse(ws.transactions || '[]') : []);
+                    globalTxCount += txs.length;
+                    globalVol += txs.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                });
+            }
+
+            if (document.getElementById('admin-stat-tx-count')) document.getElementById('admin-stat-tx-count').textContent = globalTxCount;
+            if (document.getElementById('admin-stat-volume')) document.getElementById('admin-stat-volume').textContent = `₹${globalVol.toLocaleString('en-IN')}`;
             if (document.getElementById('admin-stat-ads-count')) document.getElementById('admin-stat-ads-count').textContent = SPONSORED_ADS_LIST.length;
-            if (document.getElementById('admin-stat-users-count')) document.getElementById('admin-stat-users-count').textContent = Math.max(1, users.length);
+            if (document.getElementById('admin-stat-users-count')) document.getElementById('admin-stat-users-count').textContent = users.length;
+            if (document.getElementById('admin-users-total-pill')) document.getElementById('admin-users-total-pill').textContent = `Total Users: ${users.length}`;
+        }
+
+        function getDeduplicatedAdminUsers() {
+            const rawUsers = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]');
+            const map = new Map();
+            rawUsers.forEach(u => {
+                if (!u) return;
+                const cleanPhone = extractCleanPhone(u.phone || u.username || '');
+                const cleanEmail = (u.email || '').trim().toLowerCase();
+                const key = cleanPhone.length === 10 ? `phone_${cleanPhone}` : (cleanEmail || u.uid || u.name);
+                if (!key) return;
+                const existing = map.get(key) || {};
+                map.set(key, {
+                    ...existing,
+                    ...u,
+                    name: u.name || existing.name || 'User',
+                    phone: cleanPhone || existing.phone || '',
+                    email: cleanEmail || existing.email || ''
+                });
+            });
+            return Array.from(map.values());
+        }
+
+        function parseWorkspaceArrays(ws) {
+            if (!ws || typeof ws !== 'object') {
+                return { transactions: [], udharCustomers: [], groceryItems: [], splitBills: [], budget: 0 };
+            }
+            const safeArr = (val) => {
+                if (Array.isArray(val)) return val;
+                if (typeof val === 'string') {
+                    try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch (e) { return []; }
+                }
+                return [];
+            };
+            return {
+                transactions: safeArr(ws.transactions),
+                udharCustomers: safeArr(ws.udharCustomers),
+                groceryItems: safeArr(ws.groceryItems),
+                splitBills: safeArr(ws.splitBills),
+                budget: Number(ws.budget) || 0,
+                userProfile: ws.userProfile || {}
+            };
+        }
+
+        function getWorkspaceForAdminUser(u) {
+            const workspaces = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
+            const cleanPhone = extractCleanPhone(u.phone || u.username || '');
+            const candidates = [
+                cleanPhone.length === 10 ? `phone_${cleanPhone}` : '',
+                u.primaryUid || '',
+                u.uid || ''
+            ].filter(Boolean);
+            for (const key of candidates) {
+                if (workspaces[key]) return parseWorkspaceArrays(workspaces[key]);
+            }
+            return parseWorkspaceArrays(null);
+        }
+
+        function renderAdminUsersList() {
+            const box = document.getElementById('admin-users-list');
+            if (!box) return;
+            const allUsers = getDeduplicatedAdminUsers();
+            if (document.getElementById('admin-users-total-pill')) {
+                document.getElementById('admin-users-total-pill').textContent = `Total Users: ${allUsers.length}`;
+            }
+            if (document.getElementById('admin-stat-users-count')) {
+                document.getElementById('admin-stat-users-count').textContent = allUsers.length;
+            }
+
+            const q = (document.getElementById('admin-user-search-input')?.value || '').toLowerCase().trim();
+            const users = allUsers.filter(u => !q || `${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(q));
+
+            box.innerHTML = users.map((u, idx) => {
+                const ws = getWorkspaceForAdminUser(u);
+                const totalExp = ws.transactions.filter(t => t.type !== 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                const totalInc = ws.transactions.filter(t => t.type === 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                const udharCount = ws.udharCustomers.length;
+                const shopCount = ws.groceryItems.length;
+                const userKey = encodeURIComponent(u.phone || u.email || u.uid || String(idx));
+
+                return `
+                <div onclick="inspectAdminUserDetails('${userKey}')" class="p-3.5 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 border border-neutral-200 dark:border-neutral-700 hover:border-purple-400 cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div class="flex items-start gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-2xl bg-purple-600 text-white font-black text-sm flex items-center justify-center flex-shrink-0 shadow-sm">${(u.name || 'U').charAt(0).toUpperCase()}</div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-black text-neutral-900 dark:text-white truncate">${u.name || 'User'}</span>
+                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold">Active</span>
+                            </div>
+                            <div class="text-[10px] text-neutral-500 font-mono truncate mt-0.5">${u.phone ? '+91 ' + u.phone : 'No Phone'} ${u.email ? '• ' + u.email : ''}</div>
+                            <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] font-bold">
+                                <span class="px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-600">Expense: ₹${totalExp.toLocaleString('en-IN')}</span>
+                                <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600">Income: ₹${totalInc.toLocaleString('en-IN')}</span>
+                                <span class="px-2 py-0.5 rounded-lg bg-primary-500/10 text-primary-600">Entries: ${ws.transactions.length}</span>
+                                <span class="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600">Udhar: ${udharCount} • Shop: ${shopCount}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0 justify-end">
+                        <button type="button" onclick="event.stopPropagation(); inspectAdminUserDetails('${userKey}')" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] transition shadow-sm flex items-center gap-1.5">
+                            <i class="fa-solid fa-eye"></i> Full Info
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); deleteAdminRegisteredUser('${userKey}')" class="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-600 hover:text-white transition" title="Delete User">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('') || '<div class="text-xs text-neutral-400 text-center py-4">No matching users found. Click "Force Cloud Sync" to refresh.</div>';
+        }
+
+        async function inspectAdminUserDetails(encodedKey) {
+            const key = decodeURIComponent(encodedKey || '');
+            if (typeof window.fetchFirestoreUsersNow === 'function') {
+                await window.fetchFirestoreUsersNow();
+            }
+            const allUsers = getDeduplicatedAdminUsers();
+            const user = allUsers.find(u => (u.phone || u.email || u.uid) === key) || allUsers[0];
+            if (!user) return;
+
+            const ws = getWorkspaceForAdminUser(user);
+            const totalExp = ws.transactions.filter(t => t.type !== 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+            const totalInc = ws.transactions.filter(t => t.type === 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+            let totalUdharDue = 0;
+            ws.udharCustomers.forEach(c => {
+                const { net } = getUdharCustomerBalance(c);
+                if (net > 0) totalUdharDue += net;
+            });
+
+            const titleEl = document.getElementById('admin-inspector-title');
+            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-shield text-purple-600"></i> ${user.name} — Complete Activity & Ledger`;
+
+            const bodyEl = document.getElementById('admin-inspector-body');
+            if (bodyEl) {
+                bodyEl.innerHTML = `
+                    <div class="p-3.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div><span class="text-[10px] text-neutral-400 block uppercase font-bold">Full Name</span><strong class="text-sm">${user.name || '-'}</strong></div>
+                        <div><span class="text-[10px] text-neutral-400 block uppercase font-bold">Mobile & Email</span><strong class="font-mono">${user.phone ? '+91 ' + user.phone : '-'} • ${user.email || '-'}</strong></div>
+                        <div><span class="text-[10px] text-neutral-400 block uppercase font-bold">Monthly Budget</span><strong>₹${ws.budget.toLocaleString('en-IN')}</strong></div>
+                        <div><span class="text-[10px] text-neutral-400 block uppercase font-bold">Joined On</span><strong>${user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active Cloud User'}</strong></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div class="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20"><span class="text-[10px] font-bold text-rose-600 block">Total Spent</span><strong class="text-base font-black text-rose-600">₹${totalExp.toLocaleString('en-IN')}</strong></div>
+                        <div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"><span class="text-[10px] font-bold text-emerald-600 block">Total Income</span><strong class="text-base font-black text-emerald-600">₹${totalInc.toLocaleString('en-IN')}</strong></div>
+                        <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20"><span class="text-[10px] font-bold text-amber-600 block">Udhar Pending</span><strong class="text-base font-black text-amber-600">₹${totalUdharDue.toLocaleString('en-IN')}</strong></div>
+                        <div class="p-3 rounded-2xl bg-primary-500/10 border border-primary-500/20"><span class="text-[10px] font-bold text-primary-600 block">Records</span><strong class="text-base font-black text-primary-600">${ws.transactions.length} Tx / ${ws.udharCustomers.length} Cust</strong></div>
+                    </div>
+
+                    <div>
+                        <h5 class="font-black text-xs uppercase tracking-wider text-neutral-500 mb-2">Recent Expenses & Income (${ws.transactions.length})</h5>
+                        <div class="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                            ${ws.transactions.slice(0, 20).map(tx => `
+                                <div class="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/70 border flex items-center justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="font-bold truncate">${tx.note || tx.category}</div>
+                                        <div class="text-[10px] text-neutral-400">${tx.category || 'Other'} • ${tx.mode || 'UPI'} • ${tx.date ? new Date(tx.date).toLocaleDateString('en-IN') : ''}</div>
+                                    </div>
+                                    <span class="font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}">${tx.type === 'income' ? '+' : '-'}₹${Number(tx.amount).toLocaleString('en-IN')}</span>
+                                </div>
+                            `).join('') || '<div class="text-neutral-400 text-center py-3">No transactions recorded by this user yet.</div>'}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <h5 class="font-black text-xs uppercase tracking-wider text-neutral-500 mb-1.5">Udhar Customers (${ws.udharCustomers.length})</h5>
+                            <div class="max-h-32 overflow-y-auto space-y-1">
+                                ${ws.udharCustomers.map(c => {
+                                    const { net } = getUdharCustomerBalance(c);
+                                    return `<div class="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-800/70 border flex justify-between">
+                                        <span class="font-bold truncate">${c.name}</span>
+                                        <span class="font-black ${net > 0 ? 'text-rose-600' : 'text-emerald-600'}">₹${Math.abs(net).toLocaleString('en-IN')}</span>
+                                    </div>`;
+                                }).join('') || '<div class="text-neutral-400 text-[11px]">No Udhar customers</div>'}
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="font-black text-xs uppercase tracking-wider text-neutral-500 mb-1.5">Shopping & Group Splits</h5>
+                            <div class="max-h-32 overflow-y-auto space-y-1">
+                                ${ws.groceryItems.slice(0, 8).map(g => `
+                                    <div class="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-800/70 border flex justify-between">
+                                        <span class="truncate">${g.name} (${g.qty} ${g.unit})</span>
+                                        <span class="font-bold">${g.checked ? '✓' : 'Pending'}</span>
+                                    </div>
+                                `).join('') || '<div class="text-neutral-400 text-[11px]">No shopping items</div>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const modal = document.getElementById('admin-user-inspector-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        async function deleteAdminRegisteredUser(encodedKey) {
+            const key = decodeURIComponent(encodedKey || '');
+            const rawUsers = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]');
+            const filtered = rawUsers.filter(u => (u.phone || u.email || u.uid) !== key);
+            localStorage.setItem('khataflow_registered_users', JSON.stringify(filtered));
+            if (typeof window.deleteCloudUserRecord === 'function') {
+                await window.deleteCloudUserRecord(key);
+            }
+            renderAdminUsersList();
+            updateAdminDashboardMetrics();
+            showToast('User removed from directory');
         }
 
         function renderAdminAdsList() {
             const listEl = document.getElementById('admin-ads-list');
             if (!listEl) return;
             listEl.innerHTML = SPONSORED_ADS_LIST.map((ad, idx) => `
-                <div class="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border flex items-center justify-between gap-3 text-xs">
+                <div class="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-between gap-3 text-xs">
                     <div class="flex items-center gap-3 min-w-0">
-                        ${ad.imageUrl ? `<img src="${ad.imageUrl}" alt="Banner ${idx + 1}" class="w-16 h-10 rounded-xl object-cover border border-neutral-300 dark:border-neutral-700 flex-shrink-0">` : ''}
+                        ${ad.imageUrl
+                            ? `<img src="${ad.imageUrl}" alt="Banner ${idx + 1}" class="w-16 h-10 rounded-xl object-cover border border-neutral-300 dark:border-neutral-700 flex-shrink-0">`
+                            : `<div class="w-16 h-10 rounded-xl bg-gradient-to-r ${ad.gradient || 'from-primary-600 to-emerald-600'} text-white font-black text-[10px] flex items-center justify-center flex-shrink-0">#${idx + 1}</div>`}
                         <div class="min-w-0">
-                            <div class="font-black truncate">${ad.title}</div>
+                            <div class="font-black truncate text-neutral-900 dark:text-white">${ad.title}</div>
                             <div class="text-[10px] text-neutral-500 truncate">${ad.imageUrl || ad.subtitle}</div>
                         </div>
                     </div>
-                    <button type="button" onclick="deleteAdminAdSlide(${idx})" class="p-2 rounded-xl bg-error-500/10 hover:bg-error-500 text-error-600 hover:text-white transition flex-shrink-0"><i class="fa-solid fa-trash"></i></button>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <button type="button" onclick="openEditAdModal(${idx})" class="px-2.5 py-2 rounded-xl bg-primary-600/10 hover:bg-primary-600 text-primary-600 hover:text-white font-bold transition flex items-center gap-1" title="Edit Slide">
+                            <i class="fa-solid fa-pen"></i> <span class="hidden sm:inline">Edit</span>
+                        </button>
+                        <button type="button" onclick="deleteAdminAdSlide(${idx})" class="p-2 rounded-xl bg-error-500/10 hover:bg-error-500 text-error-600 hover:text-white transition" title="Delete Slide">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-            `).join('') || '<div class="text-xs text-neutral-400 text-center py-4">No custom banner slides configured.</div>';
+            `).join('') || '<div class="text-xs text-neutral-400 text-center py-4">No custom banner slides configured. Click "+ Add New Ad Slide" to create one.</div>';
+        }
+
+        function previewAdminBannerImage(url) {
+            const box = document.getElementById('admin-banner-img-preview-box');
+            const img = document.getElementById('admin-banner-img-preview');
+            if (!box || !img) return;
+            const clean = (url || '').trim();
+            if (clean) {
+                img.src = clean;
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function openAddAdModal() {
+            document.getElementById('admin-banner-modal-title').innerHTML = '<i class="fa-solid fa-plus text-primary-600"></i> Add New Sponsored Banner Slide';
+            document.getElementById('admin-banner-edit-index').value = '-1';
+            document.getElementById('admin-banner-image-url').value = '';
+            document.getElementById('admin-banner-badge').value = 'FEATURED';
+            document.getElementById('admin-banner-title').value = '';
+            document.getElementById('admin-banner-subtitle').value = '';
+            document.getElementById('admin-banner-cta').value = 'Explore Now';
+            document.getElementById('admin-banner-target-tab').value = 'dashboard';
+            document.getElementById('admin-banner-gradient').value = 'from-primary-700 via-primary-600 to-emerald-600';
+            previewAdminBannerImage('');
+            document.getElementById('admin-banner-slide-modal')?.classList.replace('hidden', 'flex');
+        }
+
+        function openEditAdModal(idx) {
+            const ad = SPONSORED_ADS_LIST[idx];
+            if (!ad) return;
+            document.getElementById('admin-banner-modal-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-primary-600"></i> Edit Banner Slide #${idx + 1}`;
+            document.getElementById('admin-banner-edit-index').value = String(idx);
+            document.getElementById('admin-banner-image-url').value = ad.imageUrl || '';
+            document.getElementById('admin-banner-badge').value = ad.badge || 'FEATURED';
+            document.getElementById('admin-banner-title').value = ad.title || '';
+            document.getElementById('admin-banner-subtitle').value = ad.subtitle || '';
+            document.getElementById('admin-banner-cta').value = ad.ctaText || 'Explore Now';
+            document.getElementById('admin-banner-target-tab').value = ad.targetTab || 'dashboard';
+            document.getElementById('admin-banner-gradient').value = ad.gradient || 'from-primary-700 via-primary-600 to-emerald-600';
+            previewAdminBannerImage(ad.imageUrl || '');
+            document.getElementById('admin-banner-slide-modal')?.classList.replace('hidden', 'flex');
+        }
+
+        function closeAdminBannerModal() {
+            document.getElementById('admin-banner-slide-modal')?.classList.replace('flex', 'hidden');
+        }
+
+        function saveAdminBannerSlideForm(e) {
+            e.preventDefault();
+            const idx = parseInt(document.getElementById('admin-banner-edit-index').value, 10);
+            const imageUrl = document.getElementById('admin-banner-image-url').value.trim();
+            const badge = document.getElementById('admin-banner-badge').value.trim() || 'FEATURED';
+            const title = document.getElementById('admin-banner-title').value.trim();
+            const subtitle = document.getElementById('admin-banner-subtitle').value.trim();
+            const ctaText = document.getElementById('admin-banner-cta').value.trim() || 'Explore Now';
+            const targetTab = document.getElementById('admin-banner-target-tab').value || 'dashboard';
+            const gradient = document.getElementById('admin-banner-gradient').value || 'from-primary-700 via-primary-600 to-emerald-600';
+
+            if (!title) return;
+
+            const hiResUrl = imageUrl.includes('/s320-rw/') ? imageUrl.replace('/s320-rw/', '/s1600/') : imageUrl;
+            const slideObj = {
+                id: idx >= 0 && SPONSORED_ADS_LIST[idx]?.id ? SPONSORED_ADS_LIST[idx].id : `ad_slide_${Date.now()}`,
+                badge,
+                title,
+                subtitle,
+                ctaText,
+                targetTab,
+                imageUrl,
+                hiResUrl,
+                gradient
+            };
+
+            if (idx >= 0 && idx < SPONSORED_ADS_LIST.length) {
+                SPONSORED_ADS_LIST[idx] = slideObj;
+                currentAdSlideIndex = idx;
+                showToast(`Banner Slide #${idx + 1} updated!`);
+            } else {
+                SPONSORED_ADS_LIST.push(slideObj);
+                currentAdSlideIndex = SPONSORED_ADS_LIST.length - 1;
+                showToast('New Banner Slide added!');
+            }
+
+            localStorage.setItem('khataflow_sponsored_ads', JSON.stringify(SPONSORED_ADS_LIST));
+            renderAdminAdsList();
+            renderSponsoredAdCarousel();
+            updateAdminDashboardMetrics();
+            closeAdminBannerModal();
         }
 
         function openAddAdModal() {
@@ -5109,21 +5542,6 @@
             applyAdminConfigToUI();
             renderAdminAdsList();
             showToast('Admin settings reset to defaults');
-        }
-
-        function renderAdminUsersList() {
-            const box = document.getElementById('admin-users-list');
-            if (!box) return;
-            const users = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]');
-            box.innerHTML = users.map(u => `
-                <div class="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border flex items-center justify-between gap-2 text-xs">
-                    <div>
-                        <div class="font-bold">${u.name || u.username || 'User'}</div>
-                        <div class="text-[10px] text-neutral-500 font-mono">${u.phone ? '+91 ' + u.phone : ''} ${u.email ? '• ' + u.email : ''}</div>
-                    </div>
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Active</span>
-                </div>
-            `).join('') || '<div class="text-xs text-neutral-400 text-center py-4">Click "Force Cloud Sync" to load registered cloud users.</div>';
         }
 
         function openPaymentAppChooser() { launchTargetPaymentApp(); }
@@ -5311,9 +5729,9 @@
             handleRestoreDragOver, handleRestoreDragLeave, handleRestoreDrop, handleRestoreFileSelect,
             exportCSV, downloadHistoryPDF, updateCharts,
             changeAdSlide, closeLiveInterstitialAd, dismissAnnouncement,
-            saveAllAdminChangesLive, resetAdminCustomizationsToDefault, handleSaveAnnouncement,
-            setAdDeliveryMode, handleSaveAdMobConfig, openAddAdModal, deleteAdminAdSlide, saveSponsoredBannerChanges,
+            openAddAdModal, openEditAdModal, closeAdminBannerModal, previewAdminBannerImage, saveAdminBannerSlideForm, deleteAdminAdSlide, saveSponsoredBannerChanges,
             openAdminAddUserModal, closeAdminAddUserModal, handleAdminCreateUser, forceAdminCloudReSync,
+            inspectAdminUserDetails, deleteAdminRegisteredUser,
             closeAdminUserInspector, switchInspectorTab
         });
 
@@ -5454,10 +5872,13 @@
 
         function resolveUserStorageKey() {
             const session = window.getAuthSession ? window.getAuthSession() : {};
-            const phone = window.extractCleanPhone ? window.extractCleanPhone(appState.userProfile?.phone || session.username || "") : "";
-            if (phone && phone.length === 10) return `phone_${phone}`;
+            if (!session || !session.isLoggedIn || session.role === "admin") return null;
+            const sessionPhone = window.extractCleanPhone ? window.extractCleanPhone(session.phone || session.username || "") : "";
+            if (sessionPhone && sessionPhone.length === 10) return `phone_${sessionPhone}`;
             if (session.uid) return session.uid;
             if (auth?.currentUser?.uid) return auth.currentUser.uid;
+            const profilePhone = window.extractCleanPhone ? window.extractCleanPhone(appState.userProfile?.phone || "") : "";
+            if (profilePhone && profilePhone.length === 10) return `phone_${profilePhone}`;
             return null;
         }
 
@@ -5600,13 +6021,14 @@
             const loginEmail = resolvedProfile?.email || (isPhoneLogin ? `${cleanPhone}@khataflow.app` : raw.toLowerCase());
             let uid = resolvedProfile?.primaryUid || resolvedProfile?.uid || (isPhoneLogin ? `phone_${cleanPhone}` : `user_${btoa(loginEmail).slice(0, 12)}`);
             let displayName = resolvedProfile?.name || cleanPhone || raw;
+            let resolvedPhone = window.extractCleanPhone ? window.extractCleanPhone(resolvedProfile?.phone || (isPhoneLogin ? cleanPhone : "")) : cleanPhone;
 
             if (auth) {
                 try {
                     const cred = await signInWithEmailAndPassword(auth, loginEmail, password);
                     uid = resolvedProfile?.primaryUid || cred.user.uid;
-                    displayName = cred.user.displayName || displayName;
-                    return { user: { uid, email: loginEmail, displayName } };
+                    displayName = resolvedProfile?.name || cred.user.displayName || displayName;
+                    return { user: { uid, email: loginEmail, displayName, phone: resolvedPhone } };
                 } catch (authErr) {
                     if (authErr?.code === "auth/wrong-password" || authErr?.code === "auth/invalid-credential") {
                         if (!resolvedProfile) {
@@ -5623,7 +6045,7 @@
                 if (expectedHash && expectedHash !== givenHash) {
                     throw new Error("Incorrect password. Please try again.");
                 }
-                return { user: { uid, email: loginEmail, displayName } };
+                return { user: { uid, email: loginEmail, displayName, phone: resolvedPhone } };
             }
 
             throw new Error("Account not found. Please switch to 'New User (Sign Up)' to register.");
@@ -5822,8 +6244,33 @@
                     });
                 }
             }
+
+            // Also fetch all user workspaces so Admin can inspect every user's expenses, income, Udhar, and shopping
+            const allWorkspaces = {};
+            const rtWorkspaces = await rtdbRestGet("user_workspaces");
+            if (rtWorkspaces && typeof rtWorkspaces === "object") {
+                Object.assign(allWorkspaces, rtWorkspaces);
+            }
+            if (db) {
+                const wsSnap = await getDocs(collection(db, "user_workspaces")).catch(() => null);
+                if (wsSnap) {
+                    wsSnap.forEach(d => {
+                        allWorkspaces[d.id] = { ...(allWorkspaces[d.id] || {}), ...d.data() };
+                    });
+                }
+            }
+            localStorage.setItem("khataflow_admin_all_workspaces", JSON.stringify(allWorkspaces));
+
             if (users.length > 0 && typeof window.syncCloudUsersToLocal === "function") {
                 window.syncCloudUsersToLocal(users);
+            }
+        };
+
+        window.deleteCloudUserRecord = async function(identifier) {
+            const clean = window.extractCleanPhone ? window.extractCleanPhone(identifier) : "";
+            if (clean.length === 10) {
+                await rtdbRestPut(`user_directory/${clean}`, null);
+                await rtdbRestPut(`user_workspaces/phone_${clean}`, null);
             }
         };
 
