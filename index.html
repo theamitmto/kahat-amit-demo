@@ -4191,7 +4191,7 @@
         const RTDB_PUBLIC_CONFIG_URL = "https://khata-5ad1e-default-rtdb.asia-southeast1.firebasedatabase.app/public_admin_broadcast.json";
 
         // Publish all Admin Panel settings & Sponsored Ad Slides live to Cloud for all public customers
-        window.pushPublicAdminBroadcast = async function() {
+        window.pushPublicAdminBroadcast = async function(showStatus = false) {
             const fbUser = await ensureFirebaseAuthForBroadcast();
             let idToken = '';
             if (fbUser && typeof fbUser.getIdToken === 'function') {
@@ -4200,41 +4200,75 @@
 
             const localUsers = JSON.parse(localStorage.getItem('khataflow_registered_users')) || [];
             const blockedList = localUsers.filter(u => u.isBlocked).map(u => safeExtractPhone(u.phone || u.username)).filter(Boolean);
+            const nowIso = new Date().toISOString();
 
             const broadcastPayload = {
                 adminConfig: adminConfig,
                 sponsoredAds: SPONSORED_ADS_LIST,
                 blockedPhones: blockedList,
-                lastUpdatedAt: new Date().toISOString()
+                lastUpdatedAt: nowIso
             };
-
+            const serializedBroadcast = JSON.stringify(broadcastPayload);
             const rtdbAuthUrl = idToken ? `${RTDB_PUBLIC_CONFIG_URL}?auth=${encodeURIComponent(idToken)}` : RTDB_PUBLIC_CONFIG_URL;
 
+            let cloudSuccess = false;
+
             try {
+                // 1. Write dedicated global config document in public_users (proven public collection)
+                await setDoc(doc(db, 'public_users', '__global_app_config__'), {
+                    uid: '__global_app_config__',
+                    id: '__global_app_config__',
+                    isSystemConfig: true,
+                    broadcastJson: serializedBroadcast,
+                    lastUpdatedAt: nowIso
+                }, { merge: true }).then(() => { cloudSuccess = true; }).catch((e) => {
+                    console.warn("public_users config write:", e?.message);
+                });
+
+                // 2. Also stamp globalBroadcastJson across existing public_users docs so any customer reading their own public_users doc gets it immediately
+                try {
+                    const pubSnap = await getDocs(collection(db, 'public_users')).catch(() => null);
+                    if (pubSnap) {
+                        const updates = [];
+                        pubSnap.forEach(d => {
+                            if (d.id !== '__global_app_config__') {
+                                updates.push(setDoc(doc(db, 'public_users', d.id), {
+                                    globalBroadcastJson: serializedBroadcast,
+                                    globalUpdatedAt: nowIso
+                                }, { merge: true }).catch(() => {}));
+                            }
+                        });
+                        if (updates.length > 0) {
+                            await Promise.all(updates);
+                            cloudSuccess = true;
+                        }
+                    }
+                } catch (e) {}
+
+                // 3. Mirror to system_config & Realtime Database
                 await Promise.all([
-                    // 1. Firebase Realtime Database Native SDK
-                    set(ref(rtdb, 'public_admin_broadcast'), broadcastPayload).catch(() => {}),
-                    // 2. Firebase Realtime Database Authenticated REST API
+                    set(ref(rtdb, 'public_admin_broadcast'), broadcastPayload).then(() => { cloudSuccess = true; }).catch(() => {}),
                     fetch(rtdbAuthUrl, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(broadcastPayload)
-                    }).catch(() => {}),
-                    // 3. Firestore system_config
+                        body: serializedBroadcast
+                    }).then(r => { if (r.ok) cloudSuccess = true; }).catch(() => {}),
                     setDoc(doc(db, 'system_config', 'admin_settings'), {
                         ...adminConfig,
                         sponsoredAds: SPONSORED_ADS_LIST,
                         blockedPhones: blockedList,
-                        lastUpdatedAt: broadcastPayload.lastUpdatedAt
-                    }, { merge: true }).catch(() => {}),
-                    // 4. Firestore public_users global config doc
-                    setDoc(doc(db, 'public_users', '__global_app_config__'), {
-                        uid: '__global_app_config__',
-                        isSystemConfig: true,
-                        broadcastJson: JSON.stringify(broadcastPayload),
-                        lastUpdatedAt: broadcastPayload.lastUpdatedAt
-                    }, { merge: true }).catch(() => {})
+                        broadcastJson: serializedBroadcast,
+                        lastUpdatedAt: nowIso
+                    }, { merge: true }).then(() => { cloudSuccess = true; }).catch(() => {})
                 ]);
+
+                if (showStatus && typeof showToast === 'function') {
+                    if (cloudSuccess) {
+                        showToast("Live broadcast synced to ALL customer accounts!", "success");
+                    } else {
+                        showToast("Saved locally (Cloud write blocked by Firebase rules)", "error");
+                    }
+                }
             } catch (err) {
                 console.warn("Public admin broadcast notice:", err?.message || err);
             }
@@ -4249,6 +4283,8 @@
                 let parsed = rawData;
                 if (typeof rawData.broadcastJson === 'string') {
                     parsed = JSON.parse(rawData.broadcastJson);
+                } else if (typeof rawData.globalBroadcastJson === 'string') {
+                    parsed = JSON.parse(rawData.globalBroadcastJson);
                 }
 
                 const incomingCfg = parsed.adminConfig || (parsed.adDeliveryMode || parsed.announcement || parsed.admob ? parsed : null);
@@ -4256,8 +4292,7 @@
 
                 const hash = JSON.stringify({
                     t: parsed.lastUpdatedAt || '',
-                    ads: incomingAds ? incomingAds.length : 0,
-                    firstAd: incomingAds?.[0]?.imageUrl || '',
+                    ads: incomingAds || [],
                     ann: incomingCfg?.announcement || null,
                     admob: incomingCfg?.admob || null,
                     mode: incomingCfg?.adDeliveryMode || ''
@@ -4310,6 +4345,33 @@
 
         async function pullRealtimeBroadcastFromCloud() {
             try {
+                // 1. Check Firestore public_users collection (contains __global_app_config__ and stamped user docs)
+                const pubSnap = await getDocs(collection(db, 'public_users')).catch(() => null);
+                if (pubSnap) {
+                    let latestPayload = null;
+                    let latestTime = '';
+                    pubSnap.forEach(d => {
+                        const data = d.data();
+                        if (d.id === '__global_app_config__' && data.broadcastJson) {
+                            const t = data.lastUpdatedAt || '';
+                            if (t >= latestTime) {
+                                latestTime = t;
+                                latestPayload = data.broadcastJson;
+                            }
+                        } else if (data.globalBroadcastJson) {
+                            const t = data.globalUpdatedAt || '';
+                            if (t >= latestTime) {
+                                latestTime = t;
+                                latestPayload = data.globalBroadcastJson;
+                            }
+                        }
+                    });
+                    if (latestPayload) {
+                        applyIncomingPublicBroadcast({ broadcastJson: latestPayload });
+                    }
+                }
+
+                // 2. Check Realtime Database
                 let idToken = '';
                 if (auth.currentUser && typeof auth.currentUser.getIdToken === 'function') {
                     try { idToken = await auth.currentUser.getIdToken(); } catch (e) {}
@@ -4327,7 +4389,7 @@
 
         // Real-time listener active for ALL users & visitors so Admin changes appear immediately
         function startPublicAdminBroadcastListener() {
-            // 1. Native Firebase Realtime Database live stream (pushes changes to every customer in < 1s)
+            // 1. Native Firebase Realtime Database live stream
             try {
                 onValue(ref(rtdb, 'public_admin_broadcast'), (snapshot) => {
                     if (snapshot && snapshot.exists()) {
@@ -4336,27 +4398,33 @@
                 }, () => {});
             } catch (e) {}
 
-            // 2. Authenticated REST fallback pull
+            // 2. Immediate pull from Firestore public_users & RTDB
             pullRealtimeBroadcastFromCloud();
 
-            // 3. Firestore live listeners
-            getDoc(doc(db, 'system_config', 'admin_settings')).then(snap => {
-                if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
-            }).catch(() => {});
-
-            getDoc(doc(db, 'public_users', '__global_app_config__')).then(snap => {
-                if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
-            }).catch(() => {});
-
+            // 3. Real-time Firestore collection listener on public_users (fires instantly whenever Admin saves any change!)
             try {
-                onSnapshot(doc(db, 'system_config', 'admin_settings'), snap => {
-                    if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
-                }, () => {});
-            } catch (e) {}
-
-            try {
-                onSnapshot(doc(db, 'public_users', '__global_app_config__'), snap => {
-                    if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
+                onSnapshot(collection(db, 'public_users'), (snapshot) => {
+                    let latestPayload = null;
+                    let latestTime = '';
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        if (docSnap.id === '__global_app_config__' && data.broadcastJson) {
+                            const t = data.lastUpdatedAt || '';
+                            if (t >= latestTime) {
+                                latestTime = t;
+                                latestPayload = data.broadcastJson;
+                            }
+                        } else if (data.globalBroadcastJson) {
+                            const t = data.globalUpdatedAt || '';
+                            if (t >= latestTime) {
+                                latestTime = t;
+                                latestPayload = data.globalBroadcastJson;
+                            }
+                        }
+                    });
+                    if (latestPayload) {
+                        applyIncomingPublicBroadcast({ broadcastJson: latestPayload });
+                    }
                 }, () => {});
             } catch (e) {}
 
