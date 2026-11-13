@@ -4098,6 +4098,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, getDocs, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAdjMUN7Efv0Yfui2hLjGXqsyFrihioU7Q",
@@ -4112,6 +4113,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const rtdb = getDatabase(app);
 
         let workerApp = null, workerAuth = null, workerDb = null;
         try {
@@ -4122,6 +4124,7 @@
 
         window.fbAuth = auth;
         window.fbDb = db;
+        window.fbRtdb = rtdb;
         window.fbDoc = doc;
         window.fbSetDoc = setDoc;
         window.fbGetDoc = getDoc;
@@ -4130,14 +4133,17 @@
         window.fbOnSnapshot = onSnapshot;
         window.fbDeleteDoc = deleteDoc;
 
+        let userWorkspaceUnsub = null;
+        let adminUsersUnsubscribe = null;
+
         function safeExtractPhone(input) {
             if (!input) return '';
             const digits = String(input).replace(/\D/g, '');
             return digits.length >= 10 ? digits.slice(-10) : digits;
         }
 
-        function formatFirebaseEmail(id) {
-            const clean = id.trim().toLowerCase();
+        function formatFirebaseEmail(identifier) {
+            const clean = (identifier || '').trim().toLowerCase();
             if (clean.includes('@')) return clean;
             const digits = clean.replace(/\D/g, '');
             return digits ? `${digits}@khataflow.app` : `${clean}@khataflow.app`;
@@ -4159,159 +4165,20 @@
             }
         };
 
-        // Resolve email if user logs in with 10-digit mobile number (even if registered with Gmail/Email)
-        async function resolveLoginEmailFromDirectory(identifier) {
-            const clean = identifier.trim().toLowerCase();
-            if (clean.includes('@')) return clean;
-            const phoneDigits = safeExtractPhone(clean);
-            if (!phoneDigits) return formatFirebaseEmail(clean);
-
-            // 1. Check local cached directory first
-            const localUsers = JSON.parse(localStorage.getItem('khataflow_registered_users')) || [];
-            const localMatch = localUsers.find(u => safeExtractPhone(u.phone || u.username) === phoneDigits && u.email);
-            if (localMatch && localMatch.email) return localMatch.email.trim().toLowerCase();
-
-            // 2. Query Firestore public_users directory by phone/username
-            try {
-                const snap = await getDocs(collection(db, 'public_users'));
-                let matchedEmail = null;
-                snap.forEach(docSnap => {
-                    const data = docSnap.data();
-                    if (data && (safeExtractPhone(data.phone) === phoneDigits || safeExtractPhone(data.username) === phoneDigits) && data.email) {
-                        matchedEmail = String(data.email).trim().toLowerCase();
-                    }
-                });
-                if (matchedEmail) return matchedEmail;
-            } catch (e) {}
-
-            return `${phoneDigits}@khataflow.app`;
-        }
-
-        window.createCloudUserFromAdmin = async function(userData) {
-            const cleanPhone = safeExtractPhone(userData.phone || userData.username || '');
-            const userEmail = userData.email || (cleanPhone ? `${cleanPhone}@khataflow.app` : `${userData.username || 'user'}@khataflow.app`);
-            const userPassword = userData.password || "123456";
-            const nowIso = new Date().toISOString();
-            let targetUid = userData.uid || `user_${Date.now()}`;
-            let activeDb = db;
-
-            if (workerAuth && workerDb) {
-                try {
-                    const cred = await createUserWithEmailAndPassword(workerAuth, userEmail, userPassword);
-                    if (cred?.user) { targetUid = cred.user.uid; activeDb = workerDb; }
-                } catch (e) {
-                    if (e.code === 'auth/email-already-in-use') {
-                        try {
-                            const s = await signInWithEmailAndPassword(workerAuth, userEmail, userPassword);
-                            if (s?.user) { targetUid = s.user.uid; activeDb = workerDb; }
-                        } catch (e2) {}
-                    }
-                }
-            }
-
-            try {
-                await setDoc(doc(activeDb, 'public_users', targetUid), {
-                    uid: targetUid, id: targetUid, name: userData.name || 'User', phone: cleanPhone,
-                    email: userEmail, username: cleanPhone || userData.username || targetUid,
-                    isBlocked: false, totalTransactions: 0, totalVolume: 0, budget: 15000,
-                    recentTransactions: '[]', createdAt: nowIso, lastUpdated: nowIso
-                }, { merge: true });
-
-                await setDoc(doc(activeDb, 'users', targetUid, 'workspace', 'data'), {
-                    budget: 15000, categoryBudgets: {}, transactions: '[]',
-                    splitMembers: JSON.stringify([{ name: userData.name, upi: cleanPhone ? `${cleanPhone}@upi` : '@upi' }]),
-                    splitBills: '[]', groceryItems: '[]', groceryInvoices: '[]',
-                    merchantPhone: cleanPhone, merchantUpi: cleanPhone ? `${cleanPhone}@upi` : '@upi',
-                    userProfile: { name: userData.name, phone: cleanPhone, email: userEmail, upi: cleanPhone ? `${cleanPhone}@upi` : '@upi', registered: true, dateJoined: nowIso },
-                    lastSyncedAt: nowIso
-                }, { merge: true });
-
-                if (workerAuth?.currentUser) signOut(workerAuth).catch(() => {});
-                return { success: true, uid: targetUid };
-            } catch (err) {
-                return { success: false, uid: targetUid, error: err };
-            }
-        };
-
-        window.firebaseLogin = async function(id, pwd) {
-            const resolvedEmail = await resolveLoginEmailFromDirectory(id);
-            try {
-                return await signInWithEmailAndPassword(auth, resolvedEmail, pwd);
-            } catch (err) {
-                const fallbackEmail = formatFirebaseEmail(id);
-                if (fallbackEmail !== resolvedEmail) {
-                    return await signInWithEmailAndPassword(auth, fallbackEmail, pwd);
-                }
-                throw err;
-            }
-        };
-
-        window.firebaseRegister = async function(id, pwd, name) {
-            const email = formatFirebaseEmail(id);
-            const cred = await createUserWithEmailAndPassword(auth, email, pwd);
-            if (cred?.user?.uid) {
-                const cleanPhone = safeExtractPhone(id);
-                await setDoc(doc(db, 'public_users', cred.user.uid), {
-                    uid: cred.user.uid, id: cred.user.uid, name: name || id,
-                    username: cleanPhone || id, email, phone: cleanPhone,
-                    isBlocked: false, totalTransactions: 0, totalVolume: 0,
-                    createdAt: new Date().toISOString()
-                }, { merge: true }).catch(() => {});
-            }
-            return cred;
-        };
-
-        window.firebaseLogout = () => signOut(auth);
-
-        window.fetchFirestoreUsersNow = async function() {
-            try {
-                const snap = await getDocs(collection(db, 'public_users'));
-                const list = [];
-                snap.forEach(d => {
-                    if (d.id !== '__global_app_config__' && !d.data().isSystemConfig) {
-                        list.push({ id: d.id, uid: d.id, ...d.data() });
-                    }
-                });
-                if (typeof window.syncCloudUsersToLocal === 'function') window.syncCloudUsersToLocal(list);
-                return list;
-            } catch (e) {
-                return [];
-            }
-        };
-
-        let adminUnsub = null;
-        window.listenToAllUsersForAdmin = function() {
-            if (adminUnsub) { try { adminUnsub(); } catch (e) {} }
-            try {
-                window.fetchFirestoreUsersNow();
-                adminUnsub = onSnapshot(collection(db, 'public_users'), snap => {
-                    const list = [];
-                    snap.forEach(d => {
-                        if (d.id !== '__global_app_config__' && !d.data().isSystemConfig) {
-                            list.push({ id: d.id, uid: d.id, ...d.data() });
-                        } else {
-                            applyIncomingPublicBroadcast(d.data());
-                        }
-                    });
-                    if (typeof window.syncCloudUsersToLocal === 'function') {
-                        window.syncCloudUsersToLocal(list);
-                    }
-                }, () => {});
-            } catch (e) {}
-        };
-// ... existing code ... -->
-        // Ensure Firebase Auth session exists (even for local Master Admin) before writing public broadcast config
+        // Ensure Firebase Auth session exists (for both Master Admin and customers) before reading/writing public broadcast
         async function ensureFirebaseAuthForBroadcast() {
             if (auth.currentUser) return auth.currentUser;
-            // Try authenticating the Admin account directly with Firebase Auth so Firestore rules (request.auth != null) succeed
-            try {
-                const adminCred = await signInWithEmailAndPassword(auth, '6393954985@khataflow.app', 'Khata@Amit');
-                if (adminCred?.user) return adminCred.user;
-            } catch (e1) {
+            const session = window.getAuthSession();
+            if (session && session.role === 'admin') {
                 try {
-                    const createdAdmin = await createUserWithEmailAndPassword(auth, '6393954985@khataflow.app', 'Khata@Amit');
-                    if (createdAdmin?.user) return createdAdmin.user;
-                } catch (e2) {}
+                    const adminCred = await signInWithEmailAndPassword(auth, '6393954985@khataflow.app', 'Khata@Amit');
+                    if (adminCred?.user) return adminCred.user;
+                } catch (e1) {
+                    try {
+                        const createdAdmin = await createUserWithEmailAndPassword(auth, '6393954985@khataflow.app', 'Khata@Amit');
+                        if (createdAdmin?.user) return createdAdmin.user;
+                    } catch (e2) {}
+                }
             }
             try {
                 const cred = await signInAnonymously(auth);
@@ -4325,7 +4192,12 @@
 
         // Publish all Admin Panel settings & Sponsored Ad Slides live to Cloud for all public customers
         window.pushPublicAdminBroadcast = async function() {
-            await ensureFirebaseAuthForBroadcast();
+            const fbUser = await ensureFirebaseAuthForBroadcast();
+            let idToken = '';
+            if (fbUser && typeof fbUser.getIdToken === 'function') {
+                try { idToken = await fbUser.getIdToken(); } catch (e) {}
+            }
+
             const localUsers = JSON.parse(localStorage.getItem('khataflow_registered_users')) || [];
             const blockedList = localUsers.filter(u => u.isBlocked).map(u => safeExtractPhone(u.phone || u.username)).filter(Boolean);
 
@@ -4336,35 +4208,39 @@
                 lastUpdatedAt: new Date().toISOString()
             };
 
+            const rtdbAuthUrl = idToken ? `${RTDB_PUBLIC_CONFIG_URL}?auth=${encodeURIComponent(idToken)}` : RTDB_PUBLIC_CONFIG_URL;
+
             try {
                 await Promise.all([
-                    // 1. Firestore system_config
+                    // 1. Firebase Realtime Database Native SDK
+                    set(ref(rtdb, 'public_admin_broadcast'), broadcastPayload).catch(() => {}),
+                    // 2. Firebase Realtime Database Authenticated REST API
+                    fetch(rtdbAuthUrl, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(broadcastPayload)
+                    }).catch(() => {}),
+                    // 3. Firestore system_config
                     setDoc(doc(db, 'system_config', 'admin_settings'), {
                         ...adminConfig,
                         sponsoredAds: SPONSORED_ADS_LIST,
                         blockedPhones: blockedList,
                         lastUpdatedAt: broadcastPayload.lastUpdatedAt
                     }, { merge: true }).catch(() => {}),
-                    // 2. Firestore public_users global config doc
+                    // 4. Firestore public_users global config doc
                     setDoc(doc(db, 'public_users', '__global_app_config__'), {
                         uid: '__global_app_config__',
                         isSystemConfig: true,
                         broadcastJson: JSON.stringify(broadcastPayload),
                         lastUpdatedAt: broadcastPayload.lastUpdatedAt
-                    }, { merge: true }).catch(() => {}),
-                    // 3. Firebase Realtime Database public mirror (ensures 100% delivery across all customer devices)
-                    fetch(RTDB_PUBLIC_CONFIG_URL, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(broadcastPayload)
-                    }).catch(() => {})
+                    }, { merge: true }).catch(() => {})
                 ]);
             } catch (err) {
                 console.warn("Public admin broadcast notice:", err?.message || err);
             }
         };
 
-        let lastAppliedBroadcastTimestamp = '';
+        let lastAppliedBroadcastHash = '';
 
         // Apply incoming live Admin broadcast payload onto any customer screen immediately
         function applyIncomingPublicBroadcast(rawData) {
@@ -4374,15 +4250,20 @@
                 if (typeof rawData.broadcastJson === 'string') {
                     parsed = JSON.parse(rawData.broadcastJson);
                 }
-                if (parsed.lastUpdatedAt && parsed.lastUpdatedAt === lastAppliedBroadcastTimestamp) {
-                    return;
-                }
-                if (parsed.lastUpdatedAt) {
-                    lastAppliedBroadcastTimestamp = parsed.lastUpdatedAt;
-                }
 
                 const incomingCfg = parsed.adminConfig || (parsed.adDeliveryMode || parsed.announcement || parsed.admob ? parsed : null);
                 const incomingAds = parsed.sponsoredAds || parsed.slides;
+
+                const hash = JSON.stringify({
+                    t: parsed.lastUpdatedAt || '',
+                    ads: incomingAds ? incomingAds.length : 0,
+                    firstAd: incomingAds?.[0]?.imageUrl || '',
+                    ann: incomingCfg?.announcement || null,
+                    admob: incomingCfg?.admob || null,
+                    mode: incomingCfg?.adDeliveryMode || ''
+                });
+                if (hash === lastAppliedBroadcastHash) return;
+                lastAppliedBroadcastHash = hash;
 
                 if (incomingCfg && typeof incomingCfg === 'object') {
                     adminConfig = {
@@ -4429,7 +4310,14 @@
 
         async function pullRealtimeBroadcastFromCloud() {
             try {
-                const res = await fetch(`${RTDB_PUBLIC_CONFIG_URL}?t=${Date.now()}`);
+                let idToken = '';
+                if (auth.currentUser && typeof auth.currentUser.getIdToken === 'function') {
+                    try { idToken = await auth.currentUser.getIdToken(); } catch (e) {}
+                }
+                const url = idToken
+                    ? `${RTDB_PUBLIC_CONFIG_URL}?auth=${encodeURIComponent(idToken)}&t=${Date.now()}`
+                    : `${RTDB_PUBLIC_CONFIG_URL}?t=${Date.now()}`;
+                const res = await fetch(url);
                 if (res.ok) {
                     const data = await res.json();
                     if (data) applyIncomingPublicBroadcast(data);
@@ -4439,8 +4327,19 @@
 
         // Real-time listener active for ALL users & visitors so Admin changes appear immediately
         function startPublicAdminBroadcastListener() {
-            // Immediate pull on boot
+            // 1. Native Firebase Realtime Database live stream (pushes changes to every customer in < 1s)
+            try {
+                onValue(ref(rtdb, 'public_admin_broadcast'), (snapshot) => {
+                    if (snapshot && snapshot.exists()) {
+                        applyIncomingPublicBroadcast(snapshot.val());
+                    }
+                }, () => {});
+            } catch (e) {}
+
+            // 2. Authenticated REST fallback pull
             pullRealtimeBroadcastFromCloud();
+
+            // 3. Firestore live listeners
             getDoc(doc(db, 'system_config', 'admin_settings')).then(snap => {
                 if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
             }).catch(() => {});
@@ -4449,7 +4348,6 @@
                 if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
             }).catch(() => {});
 
-            // Live Firestore real-time listeners
             try {
                 onSnapshot(doc(db, 'system_config', 'admin_settings'), snap => {
                     if (snap && snap.exists()) applyIncomingPublicBroadcast(snap.data());
@@ -4462,24 +4360,207 @@
                 }, () => {});
             } catch (e) {}
 
-            // Periodic background sync every 5 seconds for cross-device customer accounts
+            // 4. Periodic sync every 4 seconds for any active customer account
             setInterval(() => {
                 const session = window.getAuthSession();
                 if (!session || session.role !== 'admin') {
                     pullRealtimeBroadcastFromCloud();
                 }
-            }, 5000);
+            }, 4000);
         }
 
         startPublicAdminBroadcastListener();
 
+        window.createCloudUserFromAdmin = async function(userData) {
+            const rawPhone = userData.phone || userData.username || '';
+            const cleanPhone = safeExtractPhone(rawPhone);
+            const userEmail = userData.email || (cleanPhone ? `${cleanPhone}@khataflow.app` : `${userData.username || 'user'}@khataflow.app`);
+            const userPassword = userData.password || "123456";
+            const nowIso = new Date().toISOString();
+            let targetUid = userData.uid || null;
+            let activeDb = db;
+
+            if (workerAuth && workerDb) {
+                try {
+                    const workerCred = await createUserWithEmailAndPassword(workerAuth, userEmail, userPassword);
+                    if (workerCred?.user) { targetUid = workerCred.user.uid; activeDb = workerDb; }
+                } catch (workerErr) {
+                    if (workerErr.code === 'auth/email-already-in-use') {
+                        try {
+                            const signinCred = await signInWithEmailAndPassword(workerAuth, userEmail, userPassword);
+                            if (signinCred?.user) { targetUid = signinCred.user.uid; activeDb = workerDb; }
+                        } catch (e2) {}
+                    }
+                }
+            }
+
+            if (!targetUid) targetUid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+            try {
+                await setDoc(doc(activeDb, 'public_users', targetUid), {
+                    uid: targetUid, id: targetUid, name: userData.name || 'User',
+                    phone: cleanPhone || '', email: userEmail, username: cleanPhone || userData.username || targetUid,
+                    isBlocked: false, totalTransactions: 0, totalVolume: 0, totalIncome: 0,
+                    budget: 15000, recentTransactions: '[]', lastUpdated: nowIso, createdAt: nowIso
+                }, { merge: true });
+
+                await setDoc(doc(activeDb, 'users', targetUid, 'workspace', 'data'), {
+                    budget: 15000, categoryBudgets: {}, transactions: '[]',
+                    splitMembers: JSON.stringify([{ name: userData.name, upi: cleanPhone ? `${cleanPhone}@upi` : '@upi' }]),
+                    splitBills: '[]', groceryItems: '[]', groceryInvoices: '[]',
+                    merchantPhone: cleanPhone || '', merchantUpi: cleanPhone ? `${cleanPhone}@upi` : '@upi',
+                    userProfile: { name: userData.name, phone: cleanPhone || '', email: userEmail, upi: cleanPhone ? `${cleanPhone}@upi` : '@upi', registered: true, dateJoined: nowIso },
+                    lastSyncedAt: nowIso
+                }, { merge: true });
+
+                if (workerAuth?.currentUser) signOut(workerAuth).catch(() => {});
+                return { success: true, uid: targetUid };
+            } catch (err) {
+                return { success: false, uid: targetUid, error: err };
+            }
+        };
+
+        window.fetchFirestoreUsersNow = async function() {
+            try {
+                const snapshot = await getDocs(collection(db, 'public_users')).catch(() => null);
+                if (!snapshot) return [];
+                const liveUsers = [];
+                snapshot.forEach(docSnap => {
+                    if (docSnap.id !== '__global_app_config__' && !docSnap.data().isSystemConfig) {
+                        liveUsers.push({ id: docSnap.id, uid: docSnap.id, ...docSnap.data() });
+                    }
+                });
+                if (typeof window.syncCloudUsersToLocal === 'function') window.syncCloudUsersToLocal(liveUsers);
+                return liveUsers;
+            } catch (err) {
+                return [];
+            }
+        };
+
+        window.listenToAllUsersForAdmin = function() {
+            if (adminUsersUnsubscribe) {
+                try { adminUsersUnsubscribe(); } catch (e) {}
+                adminUsersUnsubscribe = null;
+            }
+            window.fetchFirestoreUsersNow().catch(() => {});
+            try {
+                adminUsersUnsubscribe = onSnapshot(collection(db, 'public_users'), (snapshot) => {
+                    const liveUsers = [];
+                    snapshot.forEach(docSnap => {
+                        if (docSnap.id !== '__global_app_config__' && !docSnap.data().isSystemConfig) {
+                            liveUsers.push({ id: docSnap.id, uid: docSnap.id, ...docSnap.data() });
+                        }
+                    });
+                    if (typeof window.syncCloudUsersToLocal === 'function') window.syncCloudUsersToLocal(liveUsers);
+                }, () => {});
+            } catch (e) {}
+        };
+
+        window.syncCurrentUserFromCloud = async function(showNotification = false) {
+            const user = auth.currentUser;
+            if (!user || !user.uid || user.isAnonymous) return;
+            window.setCloudStatus('syncing', 'Pulling Cloud Data...');
+            try {
+                const [wsSnap, rootSnap, pubSnap] = await Promise.all([
+                    getDoc(doc(db, 'users', user.uid, 'workspace', 'data')).catch(() => null),
+                    getDoc(doc(db, 'users', user.uid)).catch(() => null),
+                    getDoc(doc(db, 'public_users', user.uid)).catch(() => null)
+                ]);
+
+                let merged = false;
+                if (pubSnap && pubSnap.exists()) {
+                    const pData = pubSnap.data();
+                    if (pData.isBlocked) {
+                        if (typeof showToast === 'function') showToast("Your account has been blocked by Administrator!", "error");
+                        if (typeof window.logoutCurrentUser === 'function') window.logoutCurrentUser();
+                        return;
+                    }
+                    window.mergeCloudDataToState(pData);
+                    merged = true;
+                }
+                if (rootSnap && rootSnap.exists()) {
+                    window.mergeCloudDataToState(rootSnap.data());
+                    merged = true;
+                }
+                if (wsSnap && wsSnap.exists()) {
+                    window.mergeCloudDataToState(wsSnap.data());
+                    merged = true;
+                }
+
+                window.setCloudStatus('online', 'Cloud Synced');
+                if (showNotification && typeof showToast === 'function') {
+                    showToast(merged ? "Previous cloud data synced!" : "Cloud workspace is up to date!");
+                }
+            } catch (err) {
+                window.setCloudStatus('offline', 'Saved Locally');
+            }
+        };
+
+        function attachUserRealtimeListener(uid) {
+            if (!uid) return;
+            if (userWorkspaceUnsub) {
+                try { userWorkspaceUnsub(); } catch (e) {}
+                userWorkspaceUnsub = null;
+            }
+            try {
+                userWorkspaceUnsub = onSnapshot(doc(db, 'users', uid, 'workspace', 'data'), (snap) => {
+                    if (snap && snap.exists()) {
+                        window.mergeCloudDataToState(snap.data());
+                    }
+                    window.setCloudStatus('online', 'Cloud Synced');
+                }, () => {
+                    window.setCloudStatus('offline', 'Saved Locally');
+                });
+            } catch (e) {}
+        }
+
+        window.firebaseLogin = async function(identifier, password) {
+            let email = formatFirebaseEmail(identifier);
+            const cleanDigits = safeExtractPhone(identifier);
+            if (!identifier.includes('@') && cleanDigits.length === 10) {
+                try {
+                    const usersSnap = await getDocs(collection(db, 'public_users')).catch(() => null);
+                    if (usersSnap) {
+                        usersSnap.forEach(d => {
+                            const data = d.data();
+                            if ((data.phone === cleanDigits || data.username === cleanDigits) && data.email) {
+                                email = data.email;
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+            window.setCloudStatus('syncing', 'Authenticating...');
+            return await signInWithEmailAndPassword(auth, email, password);
+        };
+
+        window.firebaseRegister = async function(identifier, password, fullName) {
+            const email = formatFirebaseEmail(identifier);
+            window.setCloudStatus('syncing', 'Creating Cloud Profile...');
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            if (cred?.user?.uid) {
+                const cleanPhone = safeExtractPhone(identifier);
+                await setDoc(doc(db, 'public_users', cred.user.uid), {
+                    uid: cred.user.uid, id: cred.user.uid, name: fullName || identifier,
+                    username: cleanPhone || identifier, email, phone: cleanPhone || '',
+                    isBlocked: false, totalTransactions: 0, totalVolume: 0, createdAt: new Date().toISOString()
+                }, { merge: true }).catch(() => {});
+            }
+            return cred;
+        };
+
+        window.firebaseLogout = async function() {
+            window.setCloudStatus('offline', 'Logged Out');
+            return await signOut(auth);
+        };
+
         window.pushStateToCloud = async function() {
             const user = auth.currentUser;
-            if (!user) {
-                window.setCloudStatus('offline', 'Local Mode');
+            if (!user || !user.uid || user.isAnonymous) {
+                window.setCloudStatus('offline', 'Saved Locally');
                 return;
             }
-            window.setCloudStatus('syncing', 'Saving...');
+            window.setCloudStatus('syncing', 'Saving to Cloud...');
             try {
                 const txs = appState.transactions || [];
                 const totalExp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
@@ -4495,129 +4576,36 @@
                     splitBills: JSON.stringify(appState.splitBills || []),
                     groceryItems: JSON.stringify(appState.groceryItems || []),
                     groceryInvoices: JSON.stringify(appState.groceryInvoices || []),
-                    merchantPhone: cleanPhone || '',
-                    merchantUpi: appState.merchantUpi || (cleanPhone ? `${cleanPhone}@upi` : ''),
+                    merchantPhone: appState.merchantPhone || '',
+                    merchantUpi: appState.merchantUpi || '',
                     userProfile: appState.userProfile || {},
                     lastSyncedAt: new Date().toISOString()
                 }, { merge: true });
 
                 await setDoc(doc(db, 'public_users', user.uid), {
-                    uid: user.uid,
-                    id: user.uid,
-                    name: currentName,
-                    phone: cleanPhone || '',
-                    username: cleanPhone || (user.email ? user.email.split('@')[0] : user.uid),
-                    email: appState.userProfile?.email || user.email || '',
-                    budget: appState.budget || 0,
-                    totalTransactions: txs.length,
-                    totalVolume: totalExp,
-                    totalIncome: totalInc,
-                    recentTransactions: JSON.stringify(txs),
+                    uid: user.uid, id: user.uid, name: currentName, phone: cleanPhone,
+                    username: cleanPhone || user.email.split('@')[0], email: appState.userProfile?.email || user.email || '',
+                    totalTransactions: txs.length, totalVolume: totalExp, totalIncome: totalInc,
+                    budget: appState.budget || 0, recentTransactions: JSON.stringify(txs.slice(0, 50)),
                     lastActiveAt: new Date().toISOString()
                 }, { merge: true });
 
                 window.setCloudStatus('online', 'Cloud Synced');
-            } catch (e) {
-                console.warn("Cloud push error:", e);
-                window.setCloudStatus('offline', 'Sync Retrying');
-            }
-        };
-
-        let userWorkspaceUnsub = null;
-
-        window.syncCurrentUserFromCloud = async function(notifyUser = false) {
-            const user = auth.currentUser;
-            if (!user || !user.uid) {
-                if (notifyUser && typeof showToast === 'function') {
-                    showToast("Please sign in with internet to sync cloud data", "error");
-                }
-                return false;
-            }
-
-            window.setCloudStatus('syncing', 'Fetching Cloud Data...');
-            try {
-                let foundAnyData = false;
-
-                // 1. Primary path: users/{uid}/workspace/data
-                const workspaceSnap = await getDoc(doc(db, 'users', user.uid, 'workspace', 'data')).catch(() => null);
-                if (workspaceSnap && workspaceSnap.exists()) {
-                    const data = workspaceSnap.data();
-                    if (data && typeof window.mergeCloudDataToState === 'function') {
-                        window.mergeCloudDataToState(data);
-                        foundAnyData = true;
-                    }
-                }
-
-                // 2. Fallback / Legacy root user path: users/{uid}
-                const rootUserSnap = await getDoc(doc(db, 'users', user.uid)).catch(() => null);
-                if (rootUserSnap && rootUserSnap.exists()) {
-                    const rootData = rootUserSnap.data();
-                    if (rootData && typeof window.mergeCloudDataToState === 'function') {
-                        window.mergeCloudDataToState(rootData);
-                        foundAnyData = true;
-                    }
-                }
-
-                // 3. Shared Registry path: public_users/{uid} (recovers recentTransactions & profile if workspace was empty)
-                const publicSnap = await getDoc(doc(db, 'public_users', user.uid)).catch(() => null);
-                if (publicSnap && publicSnap.exists()) {
-                    const pubData = publicSnap.data();
-                    if (pubData && typeof window.mergeCloudDataToState === 'function') {
-                        window.mergeCloudDataToState({
-                            budget: pubData.budget,
-                            recentTransactions: pubData.recentTransactions,
-                            merchantPhone: pubData.phone,
-                            userProfile: {
-                                name: pubData.name,
-                                phone: pubData.phone,
-                                email: pubData.email,
-                                businessName: pubData.businessName || '',
-                                gstin: pubData.gstin || '',
-                                address: pubData.address || '',
-                                cityPin: pubData.cityPin || ''
-                            }
-                        });
-                        foundAnyData = true;
-                    }
-                }
-
-                // If user has local transactions that weren't in cloud yet, push merged state back up
-                if ((appState.transactions || []).length > 0) {
-                    await window.pushStateToCloud();
-                }
-
-                window.setCloudStatus('online', 'Cloud Synced');
-                if (notifyUser && typeof showToast === 'function') {
-                    showToast(foundAnyData ? `Synced ${(appState.transactions || []).length} transactions from Cloud!` : "Account connected & synced!");
-                }
-                return foundAnyData;
             } catch (err) {
-                console.error("Cloud pull error:", err);
-                window.setCloudStatus('offline', 'Sync Error');
-                return false;
+                window.setCloudStatus('offline', 'Saved Locally');
             }
         };
-
-        function attachUserRealtimeListener(uid) {
-            if (userWorkspaceUnsub) { try { userWorkspaceUnsub(); } catch (e) {} userWorkspaceUnsub = null; }
-            if (!uid) return;
-            try {
-                userWorkspaceUnsub = onSnapshot(doc(db, 'users', uid, 'workspace', 'data'), (snap) => {
-                    if (snap && snap.exists() && typeof window.mergeCloudDataToState === 'function') {
-                        window.mergeCloudDataToState(snap.data());
-                    }
-                    window.setCloudStatus('online', 'Cloud Synced');
-                }, () => {
-                    window.setCloudStatus('offline', 'Local Mode');
-                });
-            } catch (e) {}
-        }
 
         onAuthStateChanged(auth, async (user) => {
             if (user && user.uid) {
                 const currentSession = window.getAuthSession();
                 const userEmail = (user.email || '').toLowerCase();
-                const isAdmin = userEmail === 'admin@khataflow.pro' || userEmail === 'admin@khataflow.app' || currentSession.role === 'admin';
+                // Ignore anonymous auth user when determining logged-in profile session
+                if (user.isAnonymous) {
+                    pullRealtimeBroadcastFromCloud();
+                    return;
+                }
+                const isAdmin = userEmail === 'admin@khataflow.pro' || userEmail === 'admin@khataflow.app' || userEmail === '6393954985@khataflow.app' || currentSession.role === 'admin';
                 const cleanUsername = userEmail.replace('@khataflow.app', '').replace('@khataflow.pro', '');
 
                 window.setAuthSession({
@@ -4628,8 +4616,15 @@
                     uid: user.uid
                 });
 
-                await window.syncCurrentUserFromCloud(false);
-                attachUserRealtimeListener(user.uid);
+                // Immediately pull latest Admin Panel settings & ads upon customer sign-in
+                pullRealtimeBroadcastFromCloud();
+                get(ref(rtdb, 'public_admin_broadcast')).then(s => { if (s.exists()) applyIncomingPublicBroadcast(s.val()); }).catch(() => {});
+                getDoc(doc(db, 'public_users', '__global_app_config__')).then(s => { if (s.exists()) applyIncomingPublicBroadcast(s.data()); }).catch(() => {});
+
+                if (!isAdmin) {
+                    await window.syncCurrentUserFromCloud(false);
+                    attachUserRealtimeListener(user.uid);
+                }
                 window.listenToAllUsersForAdmin();
                 if (typeof window.dismissAuthGate === 'function') window.dismissAuthGate();
             } else {
