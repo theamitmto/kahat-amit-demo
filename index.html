@@ -6185,7 +6185,7 @@
                         }
                         localStorage.setItem("khataflow_admin_config", JSON.stringify(adminConfig));
                     }
-                    if (data?.adsVersion === STORED_ADS_VERSION && Array.isArray(data?.sponsoredAds) && data.sponsoredAds.length > 0) {
+                    if (Array.isArray(data?.sponsoredAds) && data.sponsoredAds.length > 0) {
                         SPONSORED_ADS_LIST = data.sponsoredAds;
                         localStorage.setItem("khataflow_sponsored_ads", JSON.stringify(SPONSORED_ADS_LIST));
                     }
@@ -6193,28 +6193,40 @@
                 }, () => {});
                 adminBroadcastUnsub = () => unsubB();
             }
+
+            // Also fetch latest broadcast immediately on boot/refresh (Firestore + RTDB REST fallback)
+            (async () => {
+                try {
+                    let latest = await rtdbRestGet("public_admin_broadcast");
+                    if (!latest && db) {
+                        const sysSnap = await getDoc(doc(db, "system_config", "admin_settings")).catch(() => null);
+                        if (sysSnap && sysSnap.exists()) latest = sysSnap.data();
+                    }
+                    if (latest && typeof latest === "object") {
+                        if (latest.adminConfig) {
+                            adminConfig = { ...adminConfig, ...latest.adminConfig };
+                            localStorage.setItem("khataflow_admin_config", JSON.stringify(adminConfig));
+                        }
+                        if (Array.isArray(latest.sponsoredAds) && latest.sponsoredAds.length > 0) {
+                            SPONSORED_ADS_LIST = latest.sponsoredAds;
+                            localStorage.setItem("khataflow_sponsored_ads", JSON.stringify(SPONSORED_ADS_LIST));
+                        }
+                        applyAdminConfigToUI();
+                        if (typeof renderAdminAdsList === "function") renderAdminAdsList();
+                    }
+                } catch (e) {}
+            })();
         };
 
         window.publishAdminBroadcastToCloud = async function(payload) {
-            const versionedPayload = { ...payload, adsVersion: STORED_ADS_VERSION };
+            const broadcastPayload = { ...payload, updatedAt: Date.now() };
             if (rtdb) {
-                await set(ref(rtdb, "public_admin_broadcast"), versionedPayload).catch(() => {});
+                await set(ref(rtdb, "public_admin_broadcast"), broadcastPayload).catch(() => {});
             }
-            await rtdbRestPut("public_admin_broadcast", versionedPayload);
+            await rtdbRestPut("public_admin_broadcast", broadcastPayload);
             if (db) {
-                await setDoc(doc(db, "system_config", "admin_settings"), versionedPayload, { merge: true }).catch(() => {});
-                await setDoc(doc(db, "artifacts", appId, "public", "data", "system_config", "admin_settings"), versionedPayload, { merge: true }).catch(() => {});
-            }
-        };
-
-        window.publishAdminBroadcastToCloud = async function(payload) {
-            if (rtdb) {
-                await set(ref(rtdb, "public_admin_broadcast"), payload).catch(() => {});
-            }
-            await rtdbRestPut("public_admin_broadcast", payload);
-            if (db) {
-                await setDoc(doc(db, "system_config", "admin_settings"), payload, { merge: true }).catch(() => {});
-                await setDoc(doc(db, "artifacts", appId, "public", "data", "system_config", "admin_settings"), payload, { merge: true }).catch(() => {});
+                await setDoc(doc(db, "system_config", "admin_settings"), broadcastPayload, { merge: true }).catch(() => {});
+                await setDoc(doc(db, "artifacts", appId, "public", "data", "system_config", "admin_settings"), broadcastPayload, { merge: true }).catch(() => {});
             }
         };
 
