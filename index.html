@@ -1936,7 +1936,7 @@
                     <div class="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all bg-amber-500/12 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 group-hover:scale-105"><i class="fa-solid fa-chart-line text-xs sm:text-sm"></i><span class="nav-indicator hidden"></span></div>
                     <span class="nav-label text-[9px] sm:text-[10px] font-semibold mt-1 tracking-tight truncate max-w-full text-neutral-600 dark:text-neutral-400">Reports</span>
                 </button>
-                <button onclick="openKhataFlowAiChat()" id="nav-btn-ai" class="nav-tab-btn flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all duration-200 group hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400" title="KhataFlow AI Assistant">
+                <button onclick="openNeoKhataAiChat()" id="nav-btn-ai" class="nav-tab-btn flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all duration-200 group hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400" title="NeoKhata AI Assistant">
                     <div class="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-all bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white shadow-sm shadow-indigo-500/25 group-hover:scale-105"><i class="fa-solid fa-robot text-xs sm:text-sm"></i><span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-neutral-900"></span></div>
                     <span class="nav-label text-[9px] sm:text-[10px] font-extrabold mt-1 tracking-tight truncate max-w-full text-indigo-700 dark:text-indigo-300">AI Chat</span>
                 </button>
@@ -1948,8 +1948,8 @@
         </div>
     </nav>
 
-    <!-- KhataFlow AI Assistant Modal -->
-    <div id="khataflow-ai-modal" class="fixed inset-0 z-[160] bg-neutral-950/75 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <!-- NeoKhataw AI Assistant Modal -->
+    <div id="Neokhata-ai-modal" class="fixed inset-0 z-[160] bg-neutral-950/75 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="glass-card w-full max-w-lg h-[82vh] sm:h-[600px] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden animate-fade-in">
             <!-- AI Header -->
             <div class="px-5 py-4 bg-gradient-to-r from-primary-700 via-primary-600 to-indigo-600 text-white flex items-center justify-between flex-shrink-0">
@@ -2198,7 +2198,7 @@
             <button type="button" onclick="backupAppData()" class="w-full py-3 rounded-2xl bg-primary-600 text-white font-bold text-xs flex items-center justify-center gap-2"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
             <div ondragover="handleRestoreDragOver(event)" ondragleave="handleRestoreDragLeave(event)" ondrop="handleRestoreDrop(event)" onclick="document.getElementById('modal-restore-file').click()" class="p-5 rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 cursor-pointer hover:border-primary-500 text-xs text-neutral-500">
                 <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary-600 mb-2 block"></i>
-                Click or drop a KhataFlow <strong>.json</strong> backup file to restore
+                Click or drop a NeoKhata <strong>.json</strong> backup file to restore
                 <input type="file" id="modal-restore-file" accept=".json" onchange="handleRestoreFileSelect(event)" class="hidden">
             </div>
         </div>
@@ -2793,7 +2793,7 @@
             if (loginIdBox) loginIdBox.classList.toggle('hidden', isReg);
             if (confirmCol) confirmCol.classList.toggle('hidden', !isReg);
             if (forgotRow) forgotRow.classList.toggle('hidden', isReg);
-            if (submitText) submitText.textContent = isReg ? 'Create Account & Access KhataFlow' : 'Sign In & Access KhataFlow';
+            if (submitText) submitText.textContent = isReg ? 'Create Account & Access NeoKhata' : 'Sign In & Access NeoKhata';
             refreshAuthCaptcha();
         }
 
@@ -5825,7 +5825,7 @@
         const DEFAULT_SPONSORED_ADS = [
             {
                 id: 'ad_slide_1',
-                badge: 'KHATAFLOW PRO',
+                badge: 'NEOKHATA PRO',
                 title: 'हिसाब-किताब को बनाएं आसान',
                 subtitle: 'आय, खर्च, खरीदारी, समूह खर्च और उधार खाता का पूरा रिकॉर्ड अब एक ही ऐप में।',
                 ctaText: 'Explore Now',
@@ -6699,7 +6699,7 @@
         }
         function switchInspectorTab() {}
 
-        // ================= KHATAFLOW AI ASSISTANT ENGINE =================
+        // ================= NEOKHATA AI ASSISTANT ENGINE =================
         let kfAiSelectedPersona = 'female'; // 'male' (Amit) | 'female' (Kavya)
         let kfAiSelectedLang = null; // null | 'hi' | 'hinglish' | 'en'
         let kfAiHistory = [];
@@ -6737,7 +6737,7 @@
             const p = getKhataFlowAiPersonaInfo();
             const titleEl = document.getElementById('kf-ai-persona-title');
             const avatarEl = document.getElementById('kf-ai-avatar-badge');
-            if (titleEl) titleEl.textContent = `${p.nameEn} • KhataFlow AI`;
+            if (titleEl) titleEl.textContent = `${p.nameEn} • NeoKhata AI`;
             if (avatarEl) avatarEl.innerHTML = `<i class="fa-solid ${p.icon}"></i>`;
             if (!kfAiSelectedLang) {
                 renderKhataFlowAiWelcome();
