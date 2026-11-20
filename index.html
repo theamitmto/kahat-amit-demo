@@ -1377,13 +1377,13 @@
                                 <span class="text-[10px] text-neutral-400 font-bold">Optional</span>
                             </label>
                             <div class="relative flex items-center">
-                                <input type="text" id="gate-input-referral-code" maxlength="6" inputmode="numeric" value="432542" oninput="handleGateReferralCodeInput(this.value)" placeholder="432542 (Optional)" class="w-full px-3.5 py-2.5 pr-20 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 text-xs sm:text-sm font-mono font-black tracking-[0.2em] focus:outline-none focus:border-amber-500 transition">
-                                <button type="button" id="gate-reset-referral-btn" onclick="resetGateReferralCodeToAdmin()" class="hidden absolute right-2 px-2 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-600 text-amber-700 dark:text-amber-300 hover:text-white text-[10px] font-black transition">
-                                    Reset 432542
+                                <input type="text" id="gate-input-referral-code" maxlength="6" inputmode="numeric" value="540461" oninput="handleGateReferralCodeInput(this.value)" placeholder="540461 (Optional)" class="w-full px-3.5 py-2.5 pr-20 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 text-xs sm:text-sm font-mono font-black tracking-[0.2em] focus:outline-none focus:border-amber-500 transition">
+                                <button type="button" id="gate-reset-referral-btn" onclick="resetGateReferralCodeToDefault()" class="hidden absolute right-2 px-2 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-600 text-amber-700 dark:text-amber-300 hover:text-white text-[10px] font-black transition">
+                                    Reset 540461
                                 </button>
                             </div>
                             <div id="gate-referral-owner-display" class="mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug">
-                                <span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>Admin (Code: 432542)</strong></span>
+                                <span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>Promoter (Code: 540461)</strong></span>
                             </div>
                         </div>
                     </div>
@@ -5697,9 +5697,9 @@
             if (isReg) {
                 const refInp = document.getElementById('gate-input-referral-code');
                 if (refInp && !refInp.value.trim()) {
-                    refInp.value = DEFAULT_ADMIN_REFERRAL_CODE;
+                    refInp.value = DEFAULT_PROMOTER_REFERRAL_CODE;
                 }
-                handleGateReferralCodeInput(refInp ? refInp.value : DEFAULT_ADMIN_REFERRAL_CODE);
+                handleGateReferralCodeInput(refInp ? refInp.value : DEFAULT_PROMOTER_REFERRAL_CODE);
             }
             refreshAuthCaptcha();
         }
@@ -5994,7 +5994,7 @@
                 const dob = (document.getElementById('gate-input-dob')?.value || '').trim();
                 const computedAge = handleGateDobChange(dob);
                 const rawReferralVal = (document.getElementById('gate-input-referral-code')?.value || '').replace(/\D/g, '').slice(0, 6);
-                const referralCodeInput = rawReferralVal || DEFAULT_ADMIN_REFERRAL_CODE;
+                const referralCodeInput = rawReferralVal || DEFAULT_PROMOTER_REFERRAL_CODE;
                 const termsAccepted = !!document.getElementById('gate-input-terms')?.checked;
                 const confirmPwd = document.getElementById('gate-input-confirm-password')?.value || '';
 
@@ -6052,7 +6052,7 @@
                     return;
                 }
                 if (rawReferralVal && rawReferralVal.length !== 6) {
-                    failSignUpValidation('Referral Code वैकल्पिक (Optional) है, लेकिन यदि भरें तो पूरे 6 अंकों का कोड डालें या 432542 रहने दें।');
+                    failSignUpValidation('Referral Code वैकल्पिक (Optional) है, लेकिन यदि भरें तो पूरे 6 अंकों का कोड डालें या 540461 रहने दें।');
                     document.getElementById('gate-input-referral-code')?.focus();
                     return;
                 }
@@ -15846,9 +15846,7 @@ ${JSON.stringify(liveSnapshot)}`;
         }
 
         // ================= 6-DIGIT AFFILIATE & PLAN-COUNTED REFERRAL ENGINE =================
-        const DEFAULT_ADMIN_REFERRAL_CODE = '432542';
-        const DEFAULT_ADMIN_REFERRER_KEY = 'master_admin';
-        const DEFAULT_ADMIN_REFERRER_NAME = 'Admin';
+        const DEFAULT_PROMOTER_REFERRAL_CODE = '540461';
         let customerAffiliateFilterTab = 'all';
 
         function normalizeCollectionToArray(val) {
@@ -15864,7 +15862,7 @@ ${JSON.stringify(liveSnapshot)}`;
                     pointsPerDoneReferral: 100,
                     bonusProDaysPerDone: 0,
                     globalRewardNote: 'Earn 100 Points on every friend who activates a Pro Plan!',
-                    userCodes: { [DEFAULT_ADMIN_REFERRER_KEY]: DEFAULT_ADMIN_REFERRAL_CODE },
+                    userCodes: {},
                     referrals: [],
                     userRewards: {}
                 };
@@ -15874,7 +15872,10 @@ ${JSON.stringify(liveSnapshot)}`;
             if (!ap.pointsPerDoneReferral || Number(ap.pointsPerDoneReferral) < 1) ap.pointsPerDoneReferral = 100;
             if (ap.bonusProDaysPerDone === undefined) ap.bonusProDaysPerDone = 0;
             if (!ap.userCodes || typeof ap.userCodes !== 'object') ap.userCodes = {};
-            ap.userCodes[DEFAULT_ADMIN_REFERRER_KEY] = DEFAULT_ADMIN_REFERRAL_CODE;
+            // Remove legacy master_admin special override so 540461 belongs strictly to its regular/promoter user
+            if (ap.userCodes.master_admin) {
+                delete ap.userCodes.master_admin;
+            }
             ap.referrals = normalizeCollectionToArray(ap.referrals);
             if (!ap.userRewards || typeof ap.userRewards !== 'object') ap.userRewards = {};
             reconcileMissingAffiliateReferrals();
@@ -15888,11 +15889,11 @@ ${JSON.stringify(liveSnapshot)}`;
             let changed = false;
 
             // 1. Ensure every registered user has a persisted 6-digit referral code
-            const usedSet = new Set([...Object.values(ap.userCodes || {}).map(String), DEFAULT_ADMIN_REFERRAL_CODE]);
+            const usedSet = new Set(Object.values(ap.userCodes || {}).map(String));
             users.forEach(u => {
                 const ph = extractCleanPhone(u.phone || '');
                 const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
-                if (!uKey || uKey === DEFAULT_ADMIN_REFERRER_KEY) return;
+                if (!uKey || uKey === 'master_admin') return;
                 if (!ap.userCodes[uKey] || !/^\d{6}$/.test(String(ap.userCodes[uKey]))) {
                     ap.userCodes[uKey] = computeDeterministicSixDigitCode(uKey, usedSet);
                     changed = true;
@@ -15907,7 +15908,7 @@ ${JSON.stringify(liveSnapshot)}`;
             users.forEach(u => {
                 const ph = extractCleanPhone(u.phone || '');
                 const uKey = (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase()).trim();
-                if (!uKey || uKey === DEFAULT_ADMIN_REFERRER_KEY) return;
+                if (!uKey || uKey === 'master_admin') return;
                 if (ap.referrals.some(r => String(r.referredUserKey || '').toLowerCase() === uKey)) return;
 
                 const ws = allWs[uKey] || {};
@@ -15915,27 +15916,24 @@ ${JSON.stringify(liveSnapshot)}`;
                 const rawCode = String(u.referredByCode || wsProf.referredByCode || '').replace(/\D/g, '').slice(0, 6);
                 if (rawCode.length !== 6 || rawCode === String(ap.userCodes[uKey])) return;
 
-                let referrer = null;
-                if (rawCode === DEFAULT_ADMIN_REFERRAL_CODE) {
-                    referrer = { userKey: DEFAULT_ADMIN_REFERRER_KEY, code: DEFAULT_ADMIN_REFERRAL_CODE, name: DEFAULT_ADMIN_REFERRER_NAME };
-                } else {
-                    const foundEntry = Object.entries(ap.userCodes).find(([, c]) => String(c) === rawCode);
-                    if (foundEntry) {
-                        const rUser = users.find(x => {
-                            const xPh = extractCleanPhone(x.phone || '');
-                            const xKey = (xPh.length === 10 ? `phone_${xPh}` : (x.email || x.uid || '').toLowerCase()).trim();
-                            return xKey === foundEntry[0];
-                        });
-                        referrer = { userKey: foundEntry[0], code: rawCode, name: rUser?.name || foundEntry[0].replace(/^phone_/, '+91 ') };
-                    }
-                }
-                if (!referrer || referrer.userKey === uKey) return;
+                const foundEntry = Object.entries(ap.userCodes).find(([, c]) => String(c) === rawCode);
+                const referrerUserKey = foundEntry ? foundEntry[0] : `code_${rawCode}`;
+                if (referrerUserKey === uKey) return;
+
+                const rUser = foundEntry
+                    ? users.find(x => {
+                        const xPh = extractCleanPhone(x.phone || '');
+                        const xKey = (xPh.length === 10 ? `phone_${xPh}` : (x.email || x.uid || '').toLowerCase()).trim();
+                        return xKey === foundEntry[0];
+                    })
+                    : null;
+                const referrerName = rUser?.name || (foundEntry ? foundEntry[0].replace(/^phone_/, '+91 ') : `Promoter (${rawCode})`);
 
                 ap.referrals.unshift({
                     id: `ref_rec_${uKey}_${Date.now()}`,
-                    referrerUserKey: referrer.userKey,
-                    referrerName: referrer.name,
-                    referralCode: referrer.code,
+                    referrerUserKey,
+                    referrerName,
+                    referralCode: rawCode,
                     referredUserKey: uKey,
                     referredName: u.name || ws.name || 'User',
                     referredPhone: ph,
@@ -15977,17 +15975,16 @@ ${JSON.stringify(liveSnapshot)}`;
 
         function getOrCreateUserSixDigitReferralCode(userKey = getCurrentUserSubKey()) {
             const normKey = String(userKey || '').trim().toLowerCase();
-            if (!normKey || normKey === DEFAULT_ADMIN_REFERRER_KEY) return DEFAULT_ADMIN_REFERRAL_CODE;
+            if (!normKey || normKey === 'master_admin') return '';
             if (!adminConfig.affiliateProgram || typeof adminConfig.affiliateProgram !== 'object') {
-                adminConfig.affiliateProgram = { userCodes: { [DEFAULT_ADMIN_REFERRER_KEY]: DEFAULT_ADMIN_REFERRAL_CODE }, referrals: [], userRewards: {} };
+                adminConfig.affiliateProgram = { userCodes: {}, referrals: [], userRewards: {} };
             }
             const ap = adminConfig.affiliateProgram;
             if (!ap.userCodes || typeof ap.userCodes !== 'object') ap.userCodes = {};
-            ap.userCodes[DEFAULT_ADMIN_REFERRER_KEY] = DEFAULT_ADMIN_REFERRAL_CODE;
             if (ap.userCodes[normKey] && /^\d{6}$/.test(String(ap.userCodes[normKey]))) {
                 return String(ap.userCodes[normKey]);
             }
-            const usedSet = new Set([...Object.values(ap.userCodes).map(String), DEFAULT_ADMIN_REFERRAL_CODE]);
+            const usedSet = new Set(Object.values(ap.userCodes).map(String));
             const code = computeDeterministicSixDigitCode(normKey, usedSet);
             ap.userCodes[normKey] = code;
             safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
@@ -15997,24 +15994,41 @@ ${JSON.stringify(liveSnapshot)}`;
         function findReferrerBySixDigitCode(codeStr) {
             const cleanCode = String(codeStr || '').replace(/\D/g, '').slice(0, 6);
             if (cleanCode.length !== 6) return null;
-            if (cleanCode === DEFAULT_ADMIN_REFERRAL_CODE) {
-                return { userKey: DEFAULT_ADMIN_REFERRER_KEY, code: DEFAULT_ADMIN_REFERRAL_CODE, name: DEFAULT_ADMIN_REFERRER_NAME };
-            }
             const ap = ensureAffiliateProgramConfig();
             const users = getDeduplicatedAdminUsers();
-            const foundEntry = Object.entries(ap.userCodes || {}).find(([, c]) => String(c) === cleanCode);
-            if (!foundEntry) return null;
-            const targetKey = foundEntry[0];
-            const matchedUser = users.find(u => {
-                const ph = extractCleanPhone(u.phone || '');
-                const uKey = (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase()).trim();
-                return uKey === targetKey;
-            });
-            return {
-                userKey: targetKey,
-                code: cleanCode,
-                name: matchedUser?.name || targetKey.replace(/^phone_/, '+91 ')
-            };
+            const allWs = (() => {
+                try { return JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}'); } catch (e) { return {}; }
+            })();
+
+            // 1. Check userCodes map (synced from localStorage & Firebase global_config)
+            const foundEntry = Object.entries(ap.userCodes || {}).find(([k, c]) => k !== 'master_admin' && String(c) === cleanCode);
+            if (foundEntry) {
+                const targetKey = foundEntry[0];
+                const matchedUser = users.find(u => {
+                    const ph = extractCleanPhone(u.phone || '');
+                    const uKey = (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase()).trim();
+                    return uKey === targetKey;
+                });
+                const ws = allWs[targetKey] || {};
+                const displayName = matchedUser?.name || ws.name || ws.userProfile?.name || targetKey.replace(/^phone_/, '+91 ');
+                return {
+                    userKey: targetKey,
+                    code: cleanCode,
+                    name: displayName
+                };
+            }
+
+            // 2. Fallback check across existing referral records in case userCodes hasn't synced yet
+            const refRecord = (ap.referrals || []).find(r => String(r.referralCode) === cleanCode && r.referrerUserKey && r.referrerUserKey !== 'master_admin');
+            if (refRecord) {
+                return {
+                    userKey: refRecord.referrerUserKey,
+                    code: cleanCode,
+                    name: refRecord.referrerName || refRecord.referrerUserKey.replace(/^phone_/, '+91 ')
+                };
+            }
+
+            return null;
         }
 
         function handleGateReferralCodeInput(rawVal) {
@@ -16025,13 +16039,18 @@ ${JSON.stringify(liveSnapshot)}`;
             if (inp && inp.value !== digits) inp.value = digits;
 
             if (resetBtn) {
-                resetBtn.classList.toggle('hidden', digits === DEFAULT_ADMIN_REFERRAL_CODE);
+                resetBtn.classList.toggle('hidden', digits === DEFAULT_PROMOTER_REFERRAL_CODE);
             }
             if (!ownerEl) return;
 
+            const defaultRef = findReferrerBySixDigitCode(DEFAULT_PROMOTER_REFERRAL_CODE);
+            const defaultOwnerLabel = defaultRef
+                ? `${defaultRef.name} (Code: ${DEFAULT_PROMOTER_REFERRAL_CODE})`
+                : `Promoter (Code: ${DEFAULT_PROMOTER_REFERRAL_CODE})`;
+
             if (!digits) {
                 ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug';
-                ownerEl.innerHTML = '<span><i class="fa-solid fa-circle-check mr-1"></i> Default applies: <strong>Admin (Code: 432542)</strong></span>';
+                ownerEl.innerHTML = `<span><i class="fa-solid fa-circle-check mr-1"></i> Default applies: <strong>${defaultOwnerLabel}</strong></span>`;
                 return;
             }
             if (digits.length < 6) {
@@ -16043,23 +16062,26 @@ ${JSON.stringify(liveSnapshot)}`;
             if (ref) {
                 ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug';
                 ownerEl.innerHTML = `<span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>${ref.name} (Code: ${ref.code})</strong></span>`;
+            } else if (digits === DEFAULT_PROMOTER_REFERRAL_CODE) {
+                ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug';
+                ownerEl.innerHTML = `<span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>${defaultOwnerLabel}</strong></span>`;
             } else {
                 ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-[10.5px] font-bold text-rose-600 dark:text-rose-300 flex items-center justify-between gap-1.5 leading-snug';
-                ownerEl.innerHTML = `<span><i class="fa-solid fa-triangle-exclamation mr-1"></i> Code "${digits}" not found — Admin (432542) will apply if kept.</span>`;
+                ownerEl.innerHTML = `<span><i class="fa-solid fa-triangle-exclamation mr-1"></i> Code "${digits}" kisi user se match nahi hua.</span>`;
             }
         }
 
-        function resetGateReferralCodeToAdmin() {
+        function resetGateReferralCodeToDefault() {
             const inp = document.getElementById('gate-input-referral-code');
-            if (inp) inp.value = DEFAULT_ADMIN_REFERRAL_CODE;
-            handleGateReferralCodeInput(DEFAULT_ADMIN_REFERRAL_CODE);
+            if (inp) inp.value = DEFAULT_PROMOTER_REFERRAL_CODE;
+            handleGateReferralCodeInput(DEFAULT_PROMOTER_REFERRAL_CODE);
         }
 
         async function registerPendingAffiliateReferral({ referralCode, referredUserKey, referredName, referredPhone, referredEmail }) {
             const ap = ensureAffiliateProgramConfig();
             if (!ap.enabled) return false;
             const digitsOnly = String(referralCode || '').replace(/\D/g, '').slice(0, 6);
-            const cleanCode = digitsOnly.length === 6 ? digitsOnly : DEFAULT_ADMIN_REFERRAL_CODE;
+            const cleanCode = digitsOnly.length === 6 ? digitsOnly : DEFAULT_PROMOTER_REFERRAL_CODE;
 
             const normReferredKey = String(referredUserKey || '').trim().toLowerCase();
             if (!normReferredKey) return false;
@@ -16067,12 +16089,12 @@ ${JSON.stringify(liveSnapshot)}`;
             const ownCode = getOrCreateUserSixDigitReferralCode(normReferredKey);
             if (ownCode === cleanCode) return false;
 
-            const referrer = findReferrerBySixDigitCode(cleanCode) || {
-                userKey: DEFAULT_ADMIN_REFERRER_KEY,
-                code: DEFAULT_ADMIN_REFERRAL_CODE,
-                name: DEFAULT_ADMIN_REFERRER_NAME
-            };
-            if (referrer.userKey === normReferredKey) return false;
+            const referrer = findReferrerBySixDigitCode(cleanCode) || (
+                cleanCode === DEFAULT_PROMOTER_REFERRAL_CODE
+                    ? { userKey: `code_${DEFAULT_PROMOTER_REFERRAL_CODE}`, code: DEFAULT_PROMOTER_REFERRAL_CODE, name: `Promoter (${DEFAULT_PROMOTER_REFERRAL_CODE})` }
+                    : null
+            );
+            if (!referrer || referrer.userKey === normReferredKey) return false;
 
             if (!ap.referrals.some(r => String(r.referredUserKey || '').toLowerCase() === normReferredKey)) {
                 ap.referrals.unshift({
@@ -16337,16 +16359,10 @@ ${JSON.stringify(liveSnapshot)}`;
             const q = (document.getElementById('adm-aff-search')?.value || '').toLowerCase().trim();
             const users = getDeduplicatedAdminUsers();
 
-            // Always include Master Admin (432542) plus all registered users in the Admin Affiliate Studio
-            const directoryEntries = [
-                { uid: DEFAULT_ADMIN_REFERRER_KEY, name: 'Master Admin (Default 432542)', phone: '9999999999', email: 'admin@neokhata.app', isAdminRow: true },
-                ...users
-            ];
-
-            const rows = directoryEntries.map(u => {
+            const rows = users.map(u => {
                 const ph = extractCleanPhone(u.phone || '');
-                const uKey = u.isAdminRow ? DEFAULT_ADMIN_REFERRER_KEY : (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase());
-                if (!uKey) return null;
+                const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
+                if (!uKey || uKey === 'master_admin') return null;
                 const summary = getUserAffiliateSummary(uKey);
                 const matchesUser = `${u.name || ''} ${ph} ${u.email || ''} ${summary.code}`.toLowerCase().includes(q);
                 const matchesChild = summary.allReferrals.some(r => `${r.referredName || ''} ${r.referredPhone || ''} ${r.purchasedPlanName || ''}`.toLowerCase().includes(q));
@@ -17036,6 +17052,12 @@ ${JSON.stringify(liveSnapshot)}`;
                             SPONSORED_ADS_LIST = data.sponsoredAds;
                             localStorage.setItem('khataflow_sponsored_ads', JSON.stringify(SPONSORED_ADS_LIST));
                             if (typeof renderSponsoredAdCarousel === 'function') renderSponsoredAdCarousel();
+                        }
+                        if (typeof authGateMode !== 'undefined' && authGateMode === 'register') {
+                            const refInp = document.getElementById('gate-input-referral-code');
+                            if (refInp && typeof handleGateReferralCodeInput === 'function') {
+                                handleGateReferralCodeInput(refInp.value);
+                            }
                         }
                     });
                 } catch (e) {}
