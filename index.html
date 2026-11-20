@@ -189,6 +189,81 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #c0c5cd; border-radius: 9999px; }
         .dark ::-webkit-scrollbar-thumb { background: #45454d; }
+
+        /* ================= GLOBAL & ADMIN AUTO-ADAPTIVE RESPONSIVE ENGINE ================= */
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        #section-admin,
+        #section-admin * {
+            min-width: 0;
+        }
+        #section-admin {
+            padding-bottom: 5.5rem;
+            overflow-x: hidden;
+        }
+        #admin-70-cat-tabs {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        #admin-70-cat-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Mobile Auto-Shift (< 768px): Stack 12-col forms, widen inputs/buttons to 42px+ touch targets, prevent text/card clipping */
+        @media (max-width: 767px) {
+            #section-admin .glass-card {
+                padding: 1rem !important;
+                border-radius: 1.5rem !important;
+            }
+            #section-admin .grid-cols-12 {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 0.55rem !important;
+            }
+            #section-admin .grid-cols-12 > * {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            #section-admin input[type="text"],
+            #section-admin input[type="number"],
+            #section-admin input[type="email"],
+            #section-admin input[type="tel"],
+            #section-admin input[type="url"],
+            #section-admin input[type="date"],
+            #section-admin input[type="datetime-local"],
+            #section-admin select,
+            #section-admin textarea {
+                width: 100% !important;
+                min-height: 42px;
+                font-size: 13px !important;
+            }
+            #section-admin button,
+            #section-admin .adm70-tab {
+                min-height: 40px;
+            }
+            #section-admin .flex-wrap > button {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
+            #admin-sub-users-override-list .grid-cols-12 > div:last-child,
+            #admin-sub-plans-list .grid-cols-12 > button:last-child {
+                min-height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #admin-lockout-users-list input[type="number"] {
+                width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body class="text-neutral-800 dark:text-neutral-100 min-h-screen transition-colors duration-300">
@@ -1622,14 +1697,12 @@
                         <div id="udhar-active-ledger-panel" class="hidden space-y-4">
                             <!-- Customer Header Card -->
                             <div class="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div id="udhar-active-avatar" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 to-primary-600 text-white font-black text-base flex items-center justify-center flex-shrink-0 shadow-sm">C</div>
-                                        <div class="min-w-0">
-                                            <div class="flex items-center gap-2">
-                                                <h4 id="udhar-active-name" class="text-sm sm:text-base font-black text-neutral-900 dark:text-white truncate">Customer Name</h4>
-                                                <button type="button" onclick="openEditUdharCustomerModal()" class="text-[11px] text-primary-600 hover:text-primary-700 font-bold" title="Edit Customer"><i class="fa-solid fa-pen-to-square"></i></button>
-                                            </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="font-black text-neutral-900 dark:text-white"><i class="fa-solid fa-user-check text-emerald-600 mr-1"></i> Per-User Plan, Custom Price, Expiry &amp; Free VIP</span>
+                            <input type="text" id="adm-sub-user-search" oninput="renderAdminSubscriptionStudio()" placeholder="Filter user..." class="w-full sm:w-40 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border text-xs font-bold">
+                        </div>
+                        <div id="admin-sub-users-override-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+                    </div>
                                             <div class="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500 font-mono">
                                                 <span id="udhar-active-phone">+91 9876543210</span>
                                                 <span id="udhar-active-address" class="truncate text-neutral-400"></span>
@@ -3105,9 +3178,9 @@
                                 <span class="font-black text-neutral-900 dark:text-white"><i class="fa-solid fa-user-lock text-indigo-600 mr-1"></i> Per-User Lockout Bypass, Early Login Allow &amp; Timer Reset</span>
                                 <p class="text-[10px] text-neutral-400">Toggle <strong>Bypass ON</strong> to allow immediate login before timer expires, click <strong>Reset Timer</strong> to clear locks, or set custom lock minutes.</p>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="adm-lock-user-search" oninput="renderAdminLockoutStudio()" placeholder="Search user..." class="w-36 p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 border text-[10px] font-bold">
-                                <button type="button" onclick="resetAllUsersLoginLockouts()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px]">Reset All Timers</button>
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                                <input type="text" id="adm-lock-user-search" oninput="renderAdminLockoutStudio()" placeholder="Search user..." class="w-full sm:w-40 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border text-xs font-bold">
+                                <button type="button" onclick="resetAllUsersLoginLockouts()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs whitespace-nowrap">Reset All Timers</button>
                             </div>
                         </div>
                         <div id="admin-lockout-users-list" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
