@@ -1432,33 +1432,28 @@
                                     <span id="grocery-bill-total" class="text-lg sm:text-xl font-black text-emerald-600 tabular-nums">₹0</span>
                                 </div>
                             </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
-                        <div>
-                            <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1 flex items-center justify-between">
-                                <span class="flex items-center gap-1.5"><i class="fa-solid fa-cake-candles text-primary-600 text-[11px]"></i> Date of Birth (18+ Only)</span>
-                                <span id="gate-age-display-badge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/10 text-error-500">*Required</span>
-                            </label>
-                            <div class="flex items-center gap-2">
-                                <input type="date" id="gate-input-dob" onchange="handleGateDobChange(this.value)" oninput="handleGateDobChange(this.value)" class="flex-1 min-w-0 px-3 py-2.5 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 text-xs sm:text-sm font-bold focus:outline-none focus:border-primary-500 transition">
-                                <div id="gate-age-box" class="px-2.5 py-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-xs font-black text-neutral-600 dark:text-neutral-300 whitespace-nowrap flex-shrink-0">
-                                    Age: —
-                                </div>
-                            </div>
+                            <div id="grocery-pricing-list" class="space-y-2.5 max-h-60 overflow-y-auto pr-0.5"></div>
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1 flex items-center justify-between">
-                                <span class="flex items-center gap-1.5"><i class="fa-solid fa-gift text-amber-600 text-[11px]"></i> Referral Code (6-Digit)</span>
-                                <span class="text-[10px] text-neutral-400 font-bold">Optional</span>
-                            </label>
-                            <div class="relative flex items-center">
-                                <input type="text" id="gate-input-referral-code" maxlength="6" inputmode="numeric" value="540461" oninput="handleGateReferralCodeInput(this.value)" placeholder="540461 (Optional)" class="w-full px-3.5 py-2.5 pr-20 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 text-xs sm:text-sm font-mono font-black tracking-[0.2em] focus:outline-none focus:border-amber-500 transition">
-                                <button type="button" id="gate-reset-referral-btn" onclick="resetGateReferralCodeToDefault()" class="hidden absolute right-2 px-2 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-600 text-amber-700 dark:text-amber-300 hover:text-white text-[10px] font-black transition">
-                                    Reset 540461
-                                </button>
+                        <div class="pt-3 border-t border-emerald-200/70 dark:border-emerald-800/50 space-y-2.5 text-xs">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 overflow-hidden flex-1">
+                                    <span class="px-2.5 py-2 text-[10px] font-black text-neutral-500 bg-neutral-100 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700">Store UPI</span>
+                                    <input type="tel" id="grocery-merchant-phone" maxlength="10" oninput="handlePhoneUpiInput(this.value)" placeholder="10-digit mobile" class="w-full px-2.5 py-2 bg-transparent text-xs font-mono font-bold focus:outline-none">
+                                </div>
+                                <span id="upi-valid-badge" class="text-[10px] font-bold text-neutral-400">Optional</span>
                             </div>
-                            <div id="gate-referral-owner-display" class="mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug">
-                                <span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>Promoter (Code: 540461)</strong></span>
+                            <div class="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 truncate">Target UPI: <strong id="formatted-preview-upi">@upi</strong></div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" onclick="addGroceryBillToDashboard()" class="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] transition shadow-xs flex items-center justify-center gap-1 active:scale-95">
+                                    <i class="fa-solid fa-plus-circle"></i> Log Bill
+                                </button>
+                                <button type="button" onclick="openGroceryCounterQrModal()" class="py-2.5 px-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-black text-[11px] transition shadow-xs flex items-center justify-center gap-1 active:scale-95">
+                                    <i class="fa-solid fa-qrcode"></i> Pay QR
+                                </button>
+                                <button type="button" onclick="downloadGroceryBill('pdf')" class="py-2.5 px-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 text-white font-black text-[11px] transition shadow-xs flex items-center justify-center gap-1 active:scale-95">
+                                    <i class="fa-solid fa-file-pdf text-rose-400"></i> Bill PDF
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1697,12 +1692,14 @@
                         <div id="udhar-active-ledger-panel" class="hidden space-y-4">
                             <!-- Customer Header Card -->
                             <div class="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <span class="font-black text-neutral-900 dark:text-white"><i class="fa-solid fa-user-check text-emerald-600 mr-1"></i> Per-User Plan, Custom Price, Expiry &amp; Free VIP</span>
-                            <input type="text" id="adm-sub-user-search" oninput="renderAdminSubscriptionStudio()" placeholder="Filter user..." class="w-full sm:w-40 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border text-xs font-bold">
-                        </div>
-                        <div id="admin-sub-users-override-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
-                    </div>
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div id="udhar-active-avatar" class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 to-primary-600 text-white font-black text-base flex items-center justify-center flex-shrink-0 shadow-sm">C</div>
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-1.5">
+                                                <h4 id="udhar-active-name" class="text-sm sm:text-base font-black text-neutral-900 dark:text-white truncate">Customer</h4>
+                                                <button type="button" onclick="openEditUdharCustomerModal()" class="p-1 text-primary-600 hover:underline text-xs" title="Edit Customer"><i class="fa-solid fa-pen"></i></button>
+                                            </div>
                                             <div class="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500 font-mono">
                                                 <span id="udhar-active-phone">+91 9876543210</span>
                                                 <span id="udhar-active-address" class="truncate text-neutral-400"></span>
@@ -7111,13 +7108,17 @@
             activePanel?.classList.remove('hidden');
 
             const { gave, got, net } = getUdharCustomerBalance(activeCust);
-            document.getElementById('udhar-active-avatar').textContent = activeCust.name.charAt(0).toUpperCase();
-            document.getElementById('udhar-active-name').textContent = activeCust.name;
-            document.getElementById('udhar-active-phone').textContent = activeCust.phone ? `+91 ${activeCust.phone}` : 'No Mobile';
-            document.getElementById('udhar-active-address').textContent = activeCust.address ? `• ${activeCust.address}` : '';
-            document.getElementById('udhar-active-balance').textContent = `₹${Math.abs(net).toLocaleString('en-IN')}`;
-            document.getElementById('udhar-active-balance').className = `text-xl font-black ${net > 0 ? 'text-rose-600' : 'text-emerald-600'}`;
-            document.getElementById('udhar-cust-totals-mini').textContent = `Gave: ₹${gave.toLocaleString('en-IN')} • Got: ₹${got.toLocaleString('en-IN')}`;
+            const setUdharTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            setUdharTxt('udhar-active-avatar', (activeCust.name || 'C').charAt(0).toUpperCase());
+            setUdharTxt('udhar-active-name', activeCust.name || 'Customer');
+            setUdharTxt('udhar-active-phone', activeCust.phone ? `+91 ${activeCust.phone}` : 'No Mobile');
+            setUdharTxt('udhar-active-address', activeCust.address ? `• ${activeCust.address}` : '');
+            const activeBalEl = document.getElementById('udhar-active-balance');
+            if (activeBalEl) {
+                activeBalEl.textContent = `₹${Math.abs(net).toLocaleString('en-IN')}`;
+                activeBalEl.className = `text-xl font-black ${net > 0 ? 'text-rose-600' : 'text-emerald-600'}`;
+            }
+            setUdharTxt('udhar-cust-totals-mini', `Gave: ₹${gave.toLocaleString('en-IN')} • Got: ₹${got.toLocaleString('en-IN')}`);
 
             const badgesEl = document.getElementById('udhar-active-meta-badges');
             if (badgesEl) {
