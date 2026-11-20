@@ -3972,7 +3972,31 @@
                     <button type="button" onclick="closeEditSelfUpiModal()" class="py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold">Cancel</button>
                     <button type="submit" class="py-2.5 rounded-xl bg-primary-600 text-white text-xs font-bold">Save Profile</button>
                 </div>
+                <div id="self-profile-delete-zone" class="pt-3 mt-2 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-2 text-[11px]">
+                    <span class="text-neutral-500 font-semibold">Want to permanently close this account?</span>
+                    <button type="button" onclick="closeEditSelfUpiModal(); openDeleteSelfAccountModal()" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-600 hover:text-white font-black transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash"></i> Delete Account
+                    </button>
+                </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Admin Permanent Delete User Confirmation Modal -->
+    <div id="admin-delete-user-confirm-modal" class="fixed inset-0 z-[140] bg-neutral-950/85 backdrop-blur-xl hidden items-center justify-center p-4">
+        <div class="glass-card w-full max-w-sm p-6 rounded-[2rem] shadow-2xl relative bg-white/95 dark:bg-neutral-900/95 space-y-3 text-xs">
+            <div class="flex items-center justify-between pb-2 border-b">
+                <h4 class="text-sm font-black text-rose-600 flex items-center gap-2"><i class="fa-solid fa-user-xmark"></i> Permanent User Delete</h4>
+                <button type="button" onclick="closeAdminDeleteUserConfirmModal()" class="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400 text-xs flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                Are you sure you want to permanently delete <strong id="admin-delete-user-target-label" class="text-neutral-900 dark:text-white">this user</strong>? Their account record, email index, and entire workspace data will be erased from both <strong>localStorage</strong> and <strong>Firebase</strong>. They will have to sign up again to use the app.
+            </p>
+            <input type="hidden" id="admin-delete-user-target-key" value="">
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button type="button" onclick="closeAdminDeleteUserConfirmModal()" class="py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 font-bold">Cancel</button>
+                <button type="button" onclick="executeConfirmedAdminUserDelete()" class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black">Delete Forever</button>
+            </div>
         </div>
     </div>
 
@@ -6155,6 +6179,7 @@
                         email,
                         dob,
                         age: computedAge,
+                        accountStatus: 'active',
                         referredByCode: referralCodeInput,
                         termsAccepted: true,
                         username: phone,
@@ -6324,6 +6349,16 @@
                         return;
                     }
 
+                    if (err?.code === 'ACCOUNT_INACTIVE' || /वर्तमान में Inactive|account is inactive/i.test(err?.message || '')) {
+                        const inactiveMsg = 'Error: आपका अकाउंट वर्तमान में Inactive है। कृपया एडमिन से संपर्क करें।';
+                        showToast(inactiveMsg, 'error');
+                        if (statusEl) {
+                            statusEl.textContent = inactiveMsg;
+                            statusEl.className = 'text-center text-xs pt-1 font-extrabold text-rose-600';
+                        }
+                        return;
+                    }
+
                     const { st, lockDurationMs, lockLabel } = recordFailedLoginAttempt(identifier);
                     const lpPolicy = ensureLoginLockoutPolicy();
                     const maxTries = Math.max(1, Number(lpPolicy.maxAttempts) || 3);
@@ -6400,12 +6435,50 @@
                 return;
             }
             const sess = getAuthSession() || {};
-            if (typeof window.deleteSelfCloudAccount === 'function') {
+            if (typeof window.deleteCompleteUserAccountAndData === 'function') {
+                await window.deleteCompleteUserAccountAndData({ phone: sess.phone, email: sess.email, uid: sess.uid });
+            } else if (typeof window.deleteSelfCloudAccount === 'function') {
                 await window.deleteSelfCloudAccount({ phone: sess.phone, email: sess.email, uid: sess.uid });
             }
             closeDeleteSelfAccountModal();
             await logoutCurrentUser();
-            showToast('Account & all cloud records permanently erased');
+            setAuthGateMode('register');
+            const stEl = document.getElementById('gate-status-message');
+            if (stEl) {
+                stEl.textContent = 'आपका पुराना अकाउंट और पूरा डेटा स्थायी रूप से डिलीट हो गया है। नया उपयोग करने के लिए कृपया नया रजिस्ट्रेशन करें।';
+                stEl.className = 'text-center text-xs pt-1 font-bold text-primary-600';
+            }
+            showToast('Account & all cloud records permanently erased. Please sign up again to continue.');
+        }
+
+        function enforceAccountActiveSessionGuard() {
+            const sess = getAuthSession();
+            if (!sess || !sess.isLoggedIn || sess.role === 'admin') return false;
+            const ph = extractCleanPhone(sess.phone || appState.userProfile?.phone || '');
+            const em = (sess.email || appState.userProfile?.email || '').trim().toLowerCase();
+            const uKey = ph.length === 10 ? `phone_${ph}` : (em || sess.uid || '').toLowerCase();
+            const statusMap = (adminConfig.userAccountStatuses && typeof adminConfig.userAccountStatuses === 'object')
+                ? adminConfig.userAccountStatuses
+                : {};
+            const users = typeof getDeduplicatedAdminUsers === 'function' ? getDeduplicatedAdminUsers() : [];
+            const matched = users.find(u => (ph && extractCleanPhone(u.phone || '') === ph) || (em && (u.email || '').toLowerCase() === em));
+            const effectiveStatus = statusMap[uKey] || matched?.accountStatus || 'active';
+
+            if (effectiveStatus === 'inactive') {
+                setAuthSession(null);
+                appState = createEmptyAppState();
+                localStorage.removeItem('khataflow_state_v3');
+                enforceAuthGate();
+                const stEl = document.getElementById('gate-status-message');
+                const msg = 'Error: आपका अकाउंट वर्तमान में Inactive है। कृपया एडमिन से संपर्क करें।';
+                if (stEl) {
+                    stEl.textContent = msg;
+                    stEl.className = 'text-center text-xs pt-1 font-extrabold text-rose-600';
+                }
+                showToast(msg, 'error');
+                return true;
+            }
+            return false;
         }
 
         function forcePullUserCloudData() {
@@ -10134,16 +10207,21 @@
                 const totalInc = ws.transactions.filter(t => t.type === 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
                 const udharCount = ws.udharCustomers.length;
                 const shopCount = ws.groceryItems.length;
+                const ph = extractCleanPhone(u.phone || '');
+                const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
+                const statusMap = (adminConfig.userAccountStatuses && typeof adminConfig.userAccountStatuses === 'object') ? adminConfig.userAccountStatuses : {};
+                const accStatus = statusMap[uKey] || u.accountStatus || 'active';
+                const isActive = accStatus !== 'inactive';
                 const userKey = encodeURIComponent(u.phone || u.email || u.uid || String(idx));
 
                 return `
-                <div onclick="inspectAdminUserDetails('${userKey}')" class="p-3.5 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 border border-neutral-200 dark:border-neutral-700 hover:border-purple-400 cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div onclick="inspectAdminUserDetails('${userKey}')" class="p-3.5 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 border ${isActive ? 'border-neutral-200 dark:border-neutral-700' : 'border-rose-400/70 bg-rose-50/40 dark:bg-rose-950/20'} hover:border-purple-400 cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div class="flex items-start gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-2xl bg-purple-600 text-white font-black text-sm flex items-center justify-center flex-shrink-0 shadow-sm">${(u.name || 'U').charAt(0).toUpperCase()}</div>
+                        <div class="w-10 h-10 rounded-2xl ${isActive ? 'bg-purple-600' : 'bg-rose-600'} text-white font-black text-sm flex items-center justify-center flex-shrink-0 shadow-sm">${(u.name || 'U').charAt(0).toUpperCase()}</div>
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-black text-neutral-900 dark:text-white truncate">${u.name || 'User'}</span>
-                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold">Active</span>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${isActive ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/15 text-rose-600'}">${isActive ? '● Active' : '○ Inactive'}</span>
                             </div>
                             <div class="text-[10px] text-neutral-500 font-mono truncate mt-0.5">${u.phone ? '+91 ' + u.phone : 'No Phone'} ${u.email ? '• ' + u.email : ''}</div>
                             <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] font-bold">
@@ -10154,12 +10232,18 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0 justify-end">
-                        <button type="button" onclick="event.stopPropagation(); inspectAdminUserDetails('${userKey}')" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] transition shadow-sm flex items-center gap-1.5">
-                            <i class="fa-solid fa-user-pen"></i> Full Edit &amp; Backup
+                    <div class="flex items-center gap-1.5 flex-wrap flex-shrink-0 justify-end">
+                        <button type="button" onclick="event.stopPropagation(); setAdminUserAccountStatus('${userKey}', 'active')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-black transition ${isActive ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-emerald-500/15 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white'}">
+                            Active
                         </button>
-                        <button type="button" onclick="event.stopPropagation(); deleteAdminRegisteredUser('${userKey}')" class="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-600 hover:text-white transition" title="Delete User">
-                            <i class="fa-solid fa-trash"></i>
+                        <button type="button" onclick="event.stopPropagation(); setAdminUserAccountStatus('${userKey}', 'inactive')" class="px-2.5 py-1.5 rounded-xl text-[10px] font-black transition ${!isActive ? 'bg-amber-600 text-white shadow-2xs' : 'bg-amber-500/15 hover:bg-amber-600 text-amber-700 dark:text-amber-300 hover:text-white'}">
+                            Inactive
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); inspectAdminUserDetails('${userKey}')" class="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] transition shadow-2xs flex items-center gap-1">
+                            <i class="fa-solid fa-user-pen"></i> Edit
+                        </button>
+                        <button type="button" onclick="event.stopPropagation(); deleteAdminRegisteredUser('${userKey}')" class="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-600 hover:text-white font-black text-[10px] transition flex items-center gap-1" title="Permanently Delete User & All Data">
+                            <i class="fa-solid fa-trash"></i> Delete
                         </button>
                     </div>
                 </div>`;
@@ -14584,11 +14668,92 @@ ${JSON.stringify(liveSnapshot)}`;
 
         function deleteAdminRegisteredUser(encodedKey) {
             const key = decodeURIComponent(encodedKey || '');
-            const filtered = getDeduplicatedAdminUsers().filter(u => (u.phone || u.email || u.uid) !== key);
-            localStorage.setItem('khataflow_registered_users', JSON.stringify(filtered));
+            const users = getDeduplicatedAdminUsers();
+            const targetUser = users.find(u => (u.phone || u.email || u.uid) === key);
+            const labelEl = document.getElementById('admin-delete-user-target-label');
+            const keyInp = document.getElementById('admin-delete-user-target-key');
+            if (labelEl) {
+                labelEl.textContent = targetUser
+                    ? `${targetUser.name || 'User'} (${targetUser.phone ? '+91 ' + targetUser.phone : (targetUser.email || key)})`
+                    : key;
+            }
+            if (keyInp) keyInp.value = encodedKey;
+            document.getElementById('admin-delete-user-confirm-modal')?.classList.replace('hidden', 'flex');
+        }
+
+        function closeAdminDeleteUserConfirmModal() {
+            document.getElementById('admin-delete-user-confirm-modal')?.classList.replace('flex', 'hidden');
+        }
+
+        async function executeConfirmedAdminUserDelete() {
+            const encodedKey = document.getElementById('admin-delete-user-target-key')?.value || '';
+            const key = decodeURIComponent(encodedKey);
+            if (!key) return;
+            const users = getDeduplicatedAdminUsers();
+            const targetUser = users.find(u => (u.phone || u.email || u.uid) === key) || { phone: extractCleanPhone(key), email: key.includes('@') ? key : '', uid: key };
+            closeAdminDeleteUserConfirmModal();
+
+            showLiveProcessOverlay({
+                badge: 'Permanent Delete',
+                title: 'Deleting User & Cloud Workspace...',
+                subtitle: 'यूज़र का अकाउंट और पूरा डेटा localStorage व Firebase से हटाया जा रहा है...',
+                step: 'Purging user profile, email index & workspace...',
+                progress: 60,
+                iconClass: 'fa-solid fa-trash-can fa-bounce'
+            });
+            try {
+                if (typeof window.deleteCompleteUserAccountAndData === 'function') {
+                    await window.deleteCompleteUserAccountAndData({
+                        phone: targetUser.phone,
+                        email: targetUser.email,
+                        uid: targetUser.uid
+                    });
+                }
+                renderAdminUsersList();
+                renderAdminSubscriptionStudio();
+                renderAdminAffiliateStudio();
+                renderAdminLockoutStudio();
+                updateAdminDashboardMetrics();
+                recordAdminAuditLog('User Deleted Permanently', targetUser.name || key, 'Erased user record, email index & workspace from localStorage and Firebase');
+                saveAllAdminChangesLive();
+                showToast(`Permanently deleted "${targetUser.name || key}" & all data!`);
+            } finally {
+                hideLiveProcessOverlay();
+            }
+        }
+
+        async function setAdminUserAccountStatus(encodedKey, nextStatus) {
+            const key = decodeURIComponent(encodedKey || '');
+            const status = nextStatus === 'inactive' ? 'inactive' : 'active';
+            const users = getDeduplicatedAdminUsers();
+            const user = users.find(u => (u.phone || u.email || u.uid) === key);
+            if (!user) return;
+
+            const ph = extractCleanPhone(user.phone || '');
+            const uKey = ph.length === 10 ? `phone_${ph}` : (user.email || user.uid || '').toLowerCase();
+            if (!adminConfig.userAccountStatuses || typeof adminConfig.userAccountStatuses !== 'object') {
+                adminConfig.userAccountStatuses = {};
+            }
+            adminConfig.userAccountStatuses[uKey] = status;
+            user.accountStatus = status;
+
+            const rawUsers = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]');
+            const updatedRaw = rawUsers.map(u => {
+                const uPh = extractCleanPhone(u.phone || '');
+                const k = uPh.length === 10 ? `phone_${uPh}` : (u.email || u.uid || '').toLowerCase();
+                return k === uKey ? { ...u, accountStatus: status } : u;
+            });
+            safeLocalStorageSet('khataflow_registered_users', JSON.stringify(updatedRaw));
+            safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+
+            const { wsKey, rawWs } = resolveRawWorkspaceForUser(user);
+            if (typeof window.adminSaveSingleUserToCloud === 'function') {
+                await window.adminSaveSingleUserToCloud({ ...user, uid: uKey, accountStatus: status }, wsKey, rawWs);
+            }
             renderAdminUsersList();
-            updateAdminDashboardMetrics();
-            showToast('User removed from local registry');
+            recordAdminAuditLog(`Account ${status.toUpperCase()}`, user.name || uKey, `Status set to ${status}`);
+            saveAllAdminChangesLive();
+            showToast(`${user.name || 'User'} is now ${status.toUpperCase()}!`);
         }
 
         // ================= SUBSCRIPTION, DIRECT UPI (6393954985@upi) & ADMIN PLAN CONTROL ENGINE =================
@@ -15411,22 +15576,24 @@ ${JSON.stringify(liveSnapshot)}`;
                     const uAccess = getUserSubscriptionAccess(uKey);
                     const encKey = encodeURIComponent(uKey);
                     const expVal = ov.expiresAt ? ov.expiresAt.slice(0, 10) : '';
+                    const monthsInputId = `adm-sub-free-months-${uKey.replace(/[^a-z0-9]/gi, '_')}`;
+                    const daysInputId = `adm-sub-free-days-${uKey.replace(/[^a-z0-9]/gi, '_')}`;
                     const statusBadge = uAccess.isVipFree
-                        ? '<span class="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 font-black text-[9px]">VIP FREE</span>'
+                        ? `<span class="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 font-black text-[9px]">${uAccess.planName}${uAccess.expiresAt ? ` (${uAccess.remainingDays}d)` : ' (VIP FREE)'}</span>`
                         : (uAccess.isPro
                             ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 font-black text-[9px]">${uAccess.planName} (${uAccess.remainingDays}d)</span>`
                             : (uAccess.isPendingApproval
                                 ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 font-black text-[9px]">⏳ Pending (${uAccess.pendingPlanName})</span>`
                                 : '<span class="px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold text-[9px]">Free Plan</span>'));
                     return `
-                        <div class="p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border space-y-1.5">
+                        <div class="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 border space-y-2">
                             <div class="flex items-center justify-between gap-2">
                                 <div class="min-w-0 flex items-center gap-1.5 flex-wrap">
                                     <span class="font-black truncate">${u.name || 'User'} <span class="font-mono text-[10px] text-neutral-400">${ph || u.email || ''}</span></span>
                                     ${statusBadge}
                                 </div>
                                 <label class="flex items-center gap-1 font-black text-[10px] text-emerald-600 cursor-pointer flex-shrink-0">
-                                    <input type="checkbox" ${ov.vipFree ? 'checked' : ''} onchange="updateAdminUserSubscriptionOverride('${encKey}', 'vipFree', this.checked)" class="accent-emerald-600"> Free VIP
+                                    <input type="checkbox" ${ov.vipFree ? 'checked' : ''} onchange="updateAdminUserSubscriptionOverride('${encKey}', 'vipFree', this.checked)" class="accent-emerald-600"> Unlimited VIP
                                 </label>
                             </div>
                             <div class="grid grid-cols-12 gap-1.5 items-center text-[10px]">
@@ -15437,9 +15604,23 @@ ${JSON.stringify(liveSnapshot)}`;
                                 <input type="number" min="0" value="${ov.customPrice ?? ''}" onchange="updateAdminUserSubscriptionOverride('${encKey}', 'customPrice', this.value)" placeholder="Custom ₹" class="col-span-3 p-1.5 rounded-lg bg-white dark:bg-neutral-900 border font-black">
                                 <input type="date" value="${expVal}" onchange="updateAdminUserSubscriptionOverride('${encKey}', 'expiresAt', this.value)" class="col-span-3 p-1.5 rounded-lg bg-white dark:bg-neutral-900 border font-bold">
                                 <div class="col-span-2 flex gap-1">
-                                    <button type="button" onclick="updateAdminUserSubscriptionOverride('${encKey}', 'activateNow', true)" class="flex-1 py-1 rounded bg-emerald-600 text-white font-black" title="Activate Pro Now">On</button>
+                                    <button type="button" onclick="updateAdminUserSubscriptionOverride('${encKey}', 'activateNow', true)" class="flex-1 py-1 rounded bg-emerald-600 text-white font-black" title="Activate Paid Plan">On</button>
                                     <button type="button" onclick="updateAdminUserSubscriptionOverride('${encKey}', 'revokeNow', true)" class="flex-1 py-1 rounded bg-rose-500 text-white font-black" title="Revoke Pro">Off</button>
                                 </div>
+                            </div>
+                            <!-- Grant Any Plan Free (₹0) for Any Months + Any Days -->
+                            <div class="grid grid-cols-12 gap-1.5 items-center pt-1.5 border-t border-neutral-200/70 dark:border-neutral-700/70 text-[10px]">
+                                <div class="col-span-4 flex items-center gap-1 bg-white dark:bg-neutral-900 border rounded-lg px-2 py-1">
+                                    <span class="text-neutral-400 font-bold">Months:</span>
+                                    <input type="number" id="${monthsInputId}" min="0" max="120" value="1" class="w-full bg-transparent font-black text-purple-600 focus:outline-none">
+                                </div>
+                                <div class="col-span-4 flex items-center gap-1 bg-white dark:bg-neutral-900 border rounded-lg px-2 py-1">
+                                    <span class="text-neutral-400 font-bold">Days:</span>
+                                    <input type="number" id="${daysInputId}" min="0" max="3650" value="0" class="w-full bg-transparent font-black text-indigo-600 focus:outline-none">
+                                </div>
+                                <button type="button" onclick="grantAdminUserFreePlanDuration('${encKey}', '${monthsInputId}', '${daysInputId}')" class="col-span-4 py-1.5 px-2 rounded-lg bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white font-black shadow-2xs flex items-center justify-center gap-1">
+                                    <span>🎁 Grant Free (₹0)</span>
+                                </button>
                             </div>
                         </div>
                     `;
@@ -15657,6 +15838,139 @@ ${JSON.stringify(liveSnapshot)}`;
             safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
             renderAdminSubscriptionStudio();
             saveAllAdminChangesLive();
+        }
+
+        function addAdminSubscriptionPlan(e) {
+            if (e && typeof e.preventDefault === 'function') e.preventDefault();
+            const sc = ensureSubscriptionConfig();
+            const name = (document.getElementById('adm-new-plan-name')?.value || '').trim();
+            const price = Math.max(0, parseInt(document.getElementById('adm-new-plan-price')?.value, 10) || 199);
+            const days = Math.max(1, parseInt(document.getElementById('adm-new-plan-days')?.value, 10) || 30);
+            const badge = (document.getElementById('adm-new-plan-badge')?.value || 'Pro').trim();
+            if (!name) return;
+            sc.plans.push({
+                id: `plan_${Date.now()}`,
+                name,
+                price,
+                days,
+                badge: badge || 'Pro',
+                desc: `${days} days full VIP access`
+            });
+            if (document.getElementById('adm-new-plan-name')) document.getElementById('adm-new-plan-name').value = '';
+            if (document.getElementById('adm-new-plan-price')) document.getElementById('adm-new-plan-price').value = '';
+            safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            renderAdminSubscriptionStudio();
+            saveAllAdminChangesLive();
+            showToast(`Added subscription plan "${name}" (₹${price} / ${days}d)`);
+        }
+
+        function updateAdminSubscriptionPlanField(idx, field, val) {
+            const sc = ensureSubscriptionConfig();
+            const pl = sc.plans?.[idx];
+            if (!pl) return;
+            if (field === 'price' || field === 'days') pl[field] = Math.max(0, parseInt(val, 10) || 0);
+            else pl[field] = String(val || '').trim();
+            safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            renderAdminSubscriptionStudio();
+            saveAllAdminChangesLive();
+        }
+
+        function deleteAdminSubscriptionPlan(idx) {
+            const sc = ensureSubscriptionConfig();
+            if ((sc.plans || []).length <= 1) {
+                showToast('At least 1 plan must remain active', 'error');
+                return;
+            }
+            sc.plans.splice(idx, 1);
+            safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            renderAdminSubscriptionStudio();
+            saveAllAdminChangesLive();
+        }
+
+        function updateAdminUserSubscriptionOverride(encKey, field, val) {
+            const uKey = decodeURIComponent(encKey || '');
+            if (!uKey) return;
+            const sc = ensureSubscriptionConfig();
+            if (!sc.userOverrides[uKey]) sc.userOverrides[uKey] = {};
+            const ov = sc.userOverrides[uKey];
+
+            if (field === 'vipFree') {
+                ov.vipFree = !!val;
+                if (ov.vipFree) {
+                    const pl = (sc.plans || []).find(p => p.id === ov.assignedPlanId) || sc.plans[0];
+                    ov.planName = pl ? `${pl.name} (Free VIP)` : 'VIP Free Access';
+                    ov.customPrice = 0;
+                    if (typeof markAffiliateReferralDoneOnPlanPurchase === 'function') {
+                        markAffiliateReferralDoneOnPlanPurchase(uKey, ov.planName, 0);
+                    }
+                }
+            } else if (field === 'assignedPlanId') {
+                ov.assignedPlanId = String(val || '');
+                const pl = (sc.plans || []).find(p => p.id === ov.assignedPlanId);
+                if (pl) ov.planName = pl.name;
+            } else if (field === 'customPrice') {
+                ov.customPrice = val === '' ? '' : Math.max(0, Number(val) || 0);
+            } else if (field === 'expiresAt') {
+                ov.expiresAt = val ? new Date(`${val}T23:59:59`).toISOString() : '';
+            } else if (field === 'activateNow') {
+                const pl = (sc.plans || []).find(p => p.id === ov.assignedPlanId) || sc.plans[0];
+                const days = Number(pl?.days) || 30;
+                ov.planName = pl ? pl.name : 'Pro Active';
+                ov.assignedPlanId = pl ? pl.id : ov.assignedPlanId;
+                ov.expiresAt = new Date(Date.now() + days * 86400000).toISOString();
+                if (typeof markAffiliateReferralDoneOnPlanPurchase === 'function') {
+                    markAffiliateReferralDoneOnPlanPurchase(uKey, ov.planName, ov.customPrice !== '' && ov.customPrice !== undefined ? Number(ov.customPrice) : (pl?.price || 0));
+                }
+            } else if (field === 'revokeNow') {
+                ov.vipFree = false;
+                ov.expiresAt = '';
+                ov.planName = 'Free Plan';
+            }
+
+            safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            renderAdminSubscriptionStudio();
+            updateSubscriptionStatusBadges();
+            saveAllAdminChangesLive();
+            showToast('User subscription updated & synced!');
+        }
+
+        function grantAdminUserFreePlanDuration(encKey, monthsInputId, daysInputId) {
+            const uKey = decodeURIComponent(encKey || '');
+            if (!uKey) return;
+            const sc = ensureSubscriptionConfig();
+            if (!sc.userOverrides[uKey]) sc.userOverrides[uKey] = {};
+            const ov = sc.userOverrides[uKey];
+
+            const months = Math.max(0, parseInt(document.getElementById(monthsInputId)?.value, 10) || 0);
+            const days = Math.max(0, parseInt(document.getElementById(daysInputId)?.value, 10) || 0);
+            const totalDays = (months * 30) + days;
+            if (totalDays <= 0) {
+                showToast('Please enter at least 1 Month or 1 Day for Free VIP!', 'error');
+                return;
+            }
+
+            const selectedPlan = (sc.plans || []).find(p => p.id === ov.assignedPlanId) || sc.plans[0];
+            const planTitle = selectedPlan ? selectedPlan.name : 'Pro VIP';
+            const expiresAtIso = new Date(Date.now() + totalDays * 86400000).toISOString();
+
+            ov.assignedPlanId = selectedPlan ? selectedPlan.id : (ov.assignedPlanId || '');
+            ov.planName = `${planTitle} (Free VIP)`;
+            ov.customPrice = 0;
+            ov.vipFree = false;
+            ov.expiresAt = expiresAtIso;
+            ov.grantedFreeDurationLabel = `${months > 0 ? `${months}M ` : ''}${days > 0 ? `${days}D` : ''}`.trim();
+
+            if (typeof markAffiliateReferralDoneOnPlanPurchase === 'function') {
+                markAffiliateReferralDoneOnPlanPurchase(uKey, ov.planName, 0);
+            }
+
+            safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            renderAdminSubscriptionStudio();
+            renderAdminAffiliateStudio();
+            updateSubscriptionStatusBadges();
+            recordAdminAuditLog('Granted Free VIP Plan', uKey, `${ov.planName} for ${totalDays} days (₹0)`);
+            saveAllAdminChangesLive();
+            showToast(`Granted "${planTitle}" FREE (₹0) for ${totalDays} days!`);
         }
 
         // ================= ADMIN LOGIN LOCKOUT, BYPASS & TIMER RESET CONTROLS =================
@@ -16595,6 +16909,9 @@ ${JSON.stringify(liveSnapshot)}`;
             scheduleOfferPopupForUser(false);
             const session = getAuthSession();
             if (session && session.isLoggedIn) {
+                if (enforceAccountActiveSessionGuard()) {
+                    return;
+                }
                 propagateUserProfileAcrossApp();
                 updateAll();
                 dismissAuthGate();
@@ -16900,6 +17217,15 @@ ${JSON.stringify(liveSnapshot)}`;
                 throw notRegErr;
             }
 
+            // Block Inactive accounts immediately from logging in
+            const statusMap = (typeof adminConfig === 'object' && adminConfig?.userAccountStatuses) ? adminConfig.userAccountStatuses : {};
+            const effectiveAccStatus = statusMap[resolvedUid] || matched.accountStatus || 'active';
+            if (effectiveAccStatus === 'inactive') {
+                const inactiveErr = new Error('आपका अकाउंट वर्तमान में Inactive है। कृपया एडमिन से संपर्क करें।');
+                inactiveErr.code = 'ACCOUNT_INACTIVE';
+                throw inactiveErr;
+            }
+
             const validPwd = typeof verifyStoredPasswordHash === 'function'
                 ? await verifyStoredPasswordHash(password, matched.passwordHash)
                 : (matched.passwordHash === btoa(unescape(encodeURIComponent(password))));
@@ -17116,6 +17442,9 @@ ${JSON.stringify(liveSnapshot)}`;
                             };
                             if (typeof ensureAffiliateProgramConfig === 'function') ensureAffiliateProgramConfig();
                             localStorage.setItem('khataflow_admin_config', JSON.stringify(adminConfig));
+                            if (typeof enforceAccountActiveSessionGuard === 'function' && enforceAccountActiveSessionGuard()) {
+                                return;
+                            }
                             if (typeof applyAdminConfigToUI === 'function') applyAdminConfigToUI();
                             if (typeof apply70FeatureOverridesLive === 'function') apply70FeatureOverridesLive();
                             if (typeof updateSubscriptionStatusBadges === 'function') updateSubscriptionStatusBadges();
@@ -17127,52 +17456,39 @@ ${JSON.stringify(liveSnapshot)}`;
                             localStorage.setItem('khataflow_sponsored_ads', JSON.stringify(SPONSORED_ADS_LIST));
                             if (typeof renderSponsoredAdCarousel === 'function') renderSponsoredAdCarousel();
                         }
-                        if (typeof authGateMode !== 'undefined' && authGateMode === 'register') {
-                            const refInp = document.getElementById('gate-input-referral-code');
-                            if (refInp && typeof handleGateReferralCodeInput === 'function') {
-                                handleGateReferralCodeInput(refInp.value);
-                            }
-                        }
                     });
                 } catch (e) {}
             }
 
-            // 2. If Admin is logged in, stream all users & all workspaces in real time
-            if (sess.role === 'admin' && rtdb) {
-                try {
-                    activeUsersRtdbUnsub = onValue(ref(rtdb, 'neokhata_workspaces'), (snap) => {
-                        if (!snap.exists()) return;
-                        const allWs = snap.val() || {};
-                        localStorage.setItem('khataflow_admin_all_workspaces', JSON.stringify(allWs));
-                        if (typeof ensureAffiliateProgramConfig === 'function') ensureAffiliateProgramConfig();
-                        if (typeof renderAdminUsersList === 'function') renderAdminUsersList();
-                        if (typeof renderAdminAffiliateStudio === 'function') renderAdminAffiliateStudio();
-                        if (typeof updateAdminDashboardMetrics === 'function') updateAdminDashboardMetrics();
-                    });
-                } catch (e) {}
+            if (sess.role === 'admin') {
+                if (typeof window.fetchFirestoreUsersNow === 'function') {
+                    window.fetchFirestoreUsersNow();
+                }
+                if (rtdb) {
+                    try {
+                        activeUsersRtdbUnsub = onValue(ref(rtdb, 'neokhata_users'), (snap) => {
+                            if (!snap.exists()) return;
+                            const cloudUsers = Object.values(snap.val() || {}).filter(Boolean);
+                            if (cloudUsers.length > 0 && typeof window.syncCloudUsersToLocal === 'function') {
+                                window.syncCloudUsersToLocal(cloudUsers);
+                            }
+                        });
+                    } catch (e) {}
+                }
                 return;
             }
 
-            // 3. Real-Time Multi-Device User Workspace Stream (RTDB onValue + Firestore onSnapshot)
             const wsId = getSessionWorkspaceDocId();
             if (!wsId) return;
 
             const handleRemoteWorkspaceSnapshot = (remote) => {
                 if (!remote || typeof remote !== 'object') return;
+                if (remote.lastWriterDeviceId === CURRENT_DEVICE_ID) return;
+                const localTs = typeof appState !== 'undefined' ? (Number(appState.updatedAt) || 0) : 0;
                 const remoteTs = Number(remote.updatedAt) || 0;
-                const localTs = (typeof appState !== 'undefined' ? Number(appState.updatedAt) : 0) || 0;
-                const isFromOtherDevice = remote.lastWriterDeviceId && remote.lastWriterDeviceId !== CURRENT_DEVICE_ID;
-
-                if (isFromOtherDevice || remoteTs > localTs) {
-                    if (typeof window.mergeCloudDataToState === 'function') {
-                        window.mergeCloudDataToState(remote, true);
-                    }
-                    try {
-                        const allWs = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
-                        allWs[wsId] = remote;
-                        localStorage.setItem('khataflow_admin_all_workspaces', JSON.stringify(allWs));
-                    } catch (e) {}
-                    setCloudSyncIndicator('RTDB Live Synced', true);
+                if (remoteTs > localTs && typeof window.mergeCloudDataToState === 'function') {
+                    window.mergeCloudDataToState(remote, true);
+                    setCloudSyncIndicator('Synced Live', true);
                 }
             };
 
@@ -17190,6 +17506,73 @@ ${JSON.stringify(liveSnapshot)}`;
                     });
                 } catch (e) {}
             }
+        };
+
+        window.deleteCompleteUserAccountAndData = async function({ phone, email, uid }) {
+            await ensureCloudReady();
+            const cleanPh = extractCleanPhoneSafe(phone || '');
+            const cleanEm = (email || '').trim().toLowerCase();
+            const wsKey = cleanPh.length === 10 ? `phone_${cleanPh}` : (cleanEm ? `email_${cleanEm.replace(/[^a-z0-9]/g, '_')}` : (uid || ''));
+            const emailIndexKey = cleanEm ? `email_${cleanEm.replace(/[^a-z0-9]/g, '_')}` : '';
+
+            // 1. Purge from local registered users & workspaces
+            const regList = (typeof getDeduplicatedAdminUsers === 'function' ? getDeduplicatedAdminUsers() : []).filter(u => {
+                const uPh = extractCleanPhoneSafe(u.phone || '');
+                const uEm = (u.email || '').trim().toLowerCase();
+                if (cleanPh && uPh === cleanPh) return false;
+                if (cleanEm && uEm === cleanEm) return false;
+                if (uid && u.uid === uid) return false;
+                return true;
+            });
+            localStorage.setItem('khataflow_registered_users', JSON.stringify(regList));
+
+            const allWs = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
+            [wsKey, uid, cleanEm].filter(Boolean).forEach(k => { delete allWs[k]; });
+            localStorage.setItem('khataflow_admin_all_workspaces', JSON.stringify(allWs));
+
+            if (cleanPh) localStorage.removeItem(`neokhata_login_lock_phone_${cleanPh}`);
+            if (cleanEm) localStorage.removeItem(`neokhata_login_lock_${cleanEm}`);
+
+            // 2. Purge user status, subscription overrides, and affiliate references from adminConfig
+            if (typeof adminConfig === 'object' && adminConfig) {
+                if (adminConfig.userAccountStatuses) {
+                    [wsKey, uid].filter(Boolean).forEach(k => delete adminConfig.userAccountStatuses[k]);
+                }
+                if (adminConfig.subscriptionConfig?.userOverrides) {
+                    [wsKey, uid].filter(Boolean).forEach(k => delete adminConfig.subscriptionConfig.userOverrides[k]);
+                }
+                if (adminConfig.affiliateProgram?.userCodes) {
+                    [wsKey, uid].filter(Boolean).forEach(k => delete adminConfig.affiliateProgram.userCodes[k]);
+                }
+                if (Array.isArray(adminConfig.affiliateProgram?.referrals)) {
+                    adminConfig.affiliateProgram.referrals = adminConfig.affiliateProgram.referrals.filter(r =>
+                        r.referredUserKey !== wsKey && r.referrerUserKey !== wsKey
+                    );
+                }
+                localStorage.setItem('khataflow_admin_config', JSON.stringify(adminConfig));
+            }
+
+            // 3. Permanently remove user profile, email lookup index & workspace from Firebase RTDB & Firestore
+            const keysToPurge = Array.from(new Set([wsKey, uid].filter(Boolean)));
+            if (rtdb) {
+                for (const k of keysToPurge) {
+                    try { await remove(ref(rtdb, `neokhata_users/${k}`)); } catch (e) {}
+                    try { await remove(ref(rtdb, `neokhata_workspaces/${k}`)); } catch (e) {}
+                }
+                if (emailIndexKey) {
+                    try { await remove(ref(rtdb, `neokhata_email_index/${emailIndexKey}`)); } catch (e) {}
+                }
+            }
+            if (db) {
+                for (const k of keysToPurge) {
+                    try { await deleteDoc(doc(db, 'neokhata_users', k)); } catch (e) {}
+                    try { await deleteDoc(doc(db, 'neokhata_workspaces', k)); } catch (e) {}
+                }
+            }
+        };
+
+        window.deleteSelfCloudAccount = async function(payload) {
+            return await window.deleteCompleteUserAccountAndData(payload);
         };
 
         window.syncAffiliateConfigToCloud = async function(referredUserKey = '', appliedCode = '') {
@@ -17263,29 +17646,6 @@ ${JSON.stringify(liveSnapshot)}`;
                         if (k && ws) await setDoc(doc(db, 'neokhata_workspaces', k), { ...ws, lastWriterDeviceId: 'master_restore', updatedAt: Date.now() }, { merge: true });
                     }
                     await setDoc(doc(db, 'neokhata_system', 'global_config'), { adminConfig: cfg, sponsoredAds }, { merge: true });
-                } catch (e) {}
-            }
-        };
-
-        window.deleteSelfCloudAccount = async function({ phone, email, uid }) {
-            await ensureCloudReady();
-            const cleanPh = extractCleanPhoneSafe(phone || '');
-            const wsKey = cleanPh.length === 10 ? `phone_${cleanPh}` : (uid || '');
-            const regList = (typeof getDeduplicatedAdminUsers === 'function' ? getDeduplicatedAdminUsers() : []).filter(u => (cleanPh && extractCleanPhoneSafe(u.phone || '') !== cleanPh) && u.uid !== uid);
-            localStorage.setItem('khataflow_registered_users', JSON.stringify(regList));
-            const allWs = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
-            if (wsKey) delete allWs[wsKey];
-            localStorage.setItem('khataflow_admin_all_workspaces', JSON.stringify(allWs));
-            if (wsKey && rtdb) {
-                try {
-                    await remove(ref(rtdb, `neokhata_users/${wsKey}`));
-                    await remove(ref(rtdb, `neokhata_workspaces/${wsKey}`));
-                } catch (e) {}
-            }
-            if (wsKey && db) {
-                try {
-                    await deleteDoc(doc(db, 'neokhata_users', wsKey));
-                    await deleteDoc(doc(db, 'neokhata_workspaces', wsKey));
                 } catch (e) {}
             }
         };
