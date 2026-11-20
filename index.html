@@ -6085,6 +6085,7 @@
                         email,
                         dob,
                         age: computedAge,
+                        referredByCode: referralCodeInput,
                         termsAccepted: true,
                         username: phone,
                         passwordHash: pwdDigest,
@@ -6096,11 +6097,11 @@
                     safeLocalStorageSet('khataflow_registered_users', JSON.stringify(regList));
 
                     appState = createEmptyAppState();
-                    appState.userProfile = { name: fullName, phone, email, dob, age: computedAge, upi: `${phone}@upi`, registered: true, createdAt: new Date().toISOString() };
+                    appState.userProfile = { name: fullName, phone, email, dob, age: computedAge, referredByCode: referralCodeInput, upi: `${phone}@upi`, registered: true, createdAt: new Date().toISOString() };
                     appState.merchantPhone = phone;
                     appState.merchantUpi = `${phone}@upi`;
                     if (typeof registerPendingAffiliateReferral === 'function') {
-                        registerPendingAffiliateReferral({
+                        await registerPendingAffiliateReferral({
                             referralCode: referralCodeInput,
                             referredUserKey: `phone_${phone}`,
                             referredName: fullName,
@@ -15850,6 +15851,12 @@ ${JSON.stringify(liveSnapshot)}`;
         const DEFAULT_ADMIN_REFERRER_NAME = 'Admin';
         let customerAffiliateFilterTab = 'all';
 
+        function normalizeCollectionToArray(val) {
+            if (Array.isArray(val)) return val.filter(Boolean);
+            if (val && typeof val === 'object') return Object.values(val).filter(Boolean);
+            return [];
+        }
+
         function ensureAffiliateProgramConfig() {
             if (!adminConfig.affiliateProgram || typeof adminConfig.affiliateProgram !== 'object') {
                 adminConfig.affiliateProgram = {
@@ -15868,90 +15875,178 @@ ${JSON.stringify(liveSnapshot)}`;
             if (ap.bonusProDaysPerDone === undefined) ap.bonusProDaysPerDone = 0;
             if (!ap.userCodes || typeof ap.userCodes !== 'object') ap.userCodes = {};
             ap.userCodes[DEFAULT_ADMIN_REFERRER_KEY] = DEFAULT_ADMIN_REFERRAL_CODE;
-            if (!Array.isArray(ap.referrals)) ap.referrals = [];
+            ap.referrals = normalizeCollectionToArray(ap.referrals);
             if (!ap.userRewards || typeof ap.userRewards !== 'object') ap.userRewards = {};
+            reconcileMissingAffiliateReferrals();
             return ap;
         }
 
-        function computeDeterministicSixDigitCode(seedStr, usedSet) {
-            const cleanSeed = String(seedStr || 'neokhata');
+        function reconcileMissingAffiliateReferrals() {
+            const ap = adminConfig.affiliateProgram;
+            if (!ap) return;
+            const users = getDeduplicatedAdminUsers();
+            let changed = false;
+
+            // 1. Ensure every registered user has a persisted 6-digit referral code
+            const usedSet = new Set([...Object.values(ap.userCodes || {}).map(String), DEFAULT_ADMIN_REFERRAL_CODE]);
+            users.forEach(u => {
+                const ph = extractCleanPhone(u.phone || '');
+                const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
+                if (!uKey || uKey === DEFAULT_ADMIN_REFERRER_KEY) return;
+                if (!ap.userCodes[uKey] || !/^\d{6}$/.test(String(ap.userCodes[uKey]))) {
+                    ap.userCodes[uKey] = computeDeterministicSixDigitCode(uKey, usedSet);
+                    changed = true;
+                }
+            });
+
+            // 2. Reconcile any user account whose referredByCode was saved on their user/workspace record
+            const allWs = (() => {
+                try { return JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}'); } catch (e) { return {}; }
+            })();
+
+            users.forEach(u => {
+                const ph = extractCleanPhone(u.phone || '');
+                const uKey = (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase()).trim();
+                if (!uKey || uKey === DEFAULT_ADMIN_REFERRER_KEY) return;
+                if (ap.referrals.some(r => String(r.referredUserKey || '').toLowerCase() === uKey)) return;
+
+                const ws = allWs[uKey] || {};
+                const wsProf = (ws.userProfile && typeof ws.userProfile === 'object') ? ws.userProfile : {};
+                const rawCode = String(u.referredByCode || wsProf.referredByCode || '').replace(/\D/g, '').slice(0, 6);
+                if (rawCode.length !== 6 || rawCode === String(ap.userCodes[uKey])) return;
+
+                let referrer = null;
+                if (rawCode === DEFAULT_ADMIN_REFERRAL_CODE) {
+                    referrer = { userKey: DEFAULT_ADMIN_REFERRER_KEY, code: DEFAULT_ADMIN_REFERRAL_CODE, name: DEFAULT_ADMIN_REFERRER_NAME };
+                } else {
+                    const foundEntry = Object.entries(ap.userCodes).find(([, c]) => String(c) === rawCode);
+                    if (foundEntry) {
+                        const rUser = users.find(x => {
+                            const xPh = extractCleanPhone(x.phone || '');
+                            const xKey = (xPh.length === 10 ? `phone_${xPh}` : (x.email || x.uid || '').toLowerCase()).trim();
+                            return xKey === foundEntry[0];
+                        });
+                        referrer = { userKey: foundEntry[0], code: rawCode, name: rUser?.name || foundEntry[0].replace(/^phone_/, '+91 ') };
+                    }
+                }
+                if (!referrer || referrer.userKey === uKey) return;
+
+                ap.referrals.unshift({
+                    id: `ref_rec_${uKey}_${Date.now()}`,
+                    referrerUserKey: referrer.userKey,
+                    referrerName: referrer.name,
+                    referralCode: referrer.code,
+                    referredUserKey: uKey,
+                    referredName: u.name || ws.name || 'User',
+                    referredPhone: ph,
+                    referredEmail: (u.email || ws.email || '').trim().toLowerCase(),
+                    status: 'pending',
+                    counted: false,
+                    pointsAwarded: 0,
+                    purchasedPlanName: '',
+                    purchasedAmount: 0,
+                    signedUpAt: u.createdAt || new Date().toISOString(),
+                    completedAt: null
+                });
+                changed = true;
+            });
+
+            if (changed) {
+                safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            }
+        }
+
+        function computeDeterministicSixDigitCode(seedStr, usedSet = new Set()) {
+            const raw = String(seedStr || 'neokhata_user');
             let hash = 2166136261;
-            for (let i = 0; i < cleanSeed.length; i++) {
-                hash ^= cleanSeed.charCodeAt(i);
+            for (let i = 0; i < raw.length; i++) {
+                hash ^= raw.charCodeAt(i);
                 hash = Math.imul(hash, 16777619);
             }
-            let num = (Math.abs(hash) % 900000) + 100000;
-            let code = String(num);
+            let num = 100000 + (Math.abs(hash) % 900000);
+            let candidate = String(num).padStart(6, '0');
             let guard = 0;
-            while ((usedSet.has(code) || code === DEFAULT_ADMIN_REFERRAL_CODE) && guard < 1000) {
-                num = ((num - 100000 + 7919) % 900000) + 100000;
-                code = String(num);
+            while (usedSet.has(candidate) && guard < 10000) {
+                num = 100000 + ((num + 7919) % 900000);
+                candidate = String(num).padStart(6, '0');
                 guard++;
             }
-            usedSet.add(code);
-            return code;
+            usedSet.add(candidate);
+            return candidate;
         }
 
         function getOrCreateUserSixDigitReferralCode(userKey = getCurrentUserSubKey()) {
-            const ap = ensureAffiliateProgramConfig();
             const normKey = String(userKey || '').trim().toLowerCase();
-            if (!normKey || normKey === 'guest') return '000000';
-            if (normKey === DEFAULT_ADMIN_REFERRER_KEY || normKey === 'phone_9999999999' || normKey === 'admin@neokhata.app') {
-                ap.userCodes[DEFAULT_ADMIN_REFERRER_KEY] = DEFAULT_ADMIN_REFERRAL_CODE;
-                return DEFAULT_ADMIN_REFERRAL_CODE;
+            if (!normKey || normKey === DEFAULT_ADMIN_REFERRER_KEY) return DEFAULT_ADMIN_REFERRAL_CODE;
+            if (!adminConfig.affiliateProgram || typeof adminConfig.affiliateProgram !== 'object') {
+                adminConfig.affiliateProgram = { userCodes: { [DEFAULT_ADMIN_REFERRER_KEY]: DEFAULT_ADMIN_REFERRAL_CODE }, referrals: [], userRewards: {} };
             }
+            const ap = adminConfig.affiliateProgram;
+            if (!ap.userCodes || typeof ap.userCodes !== 'object') ap.userCodes = {};
+            ap.userCodes[DEFAULT_ADMIN_REFERRER_KEY] = DEFAULT_ADMIN_REFERRAL_CODE;
             if (ap.userCodes[normKey] && /^\d{6}$/.test(String(ap.userCodes[normKey]))) {
                 return String(ap.userCodes[normKey]);
             }
             const usedSet = new Set([...Object.values(ap.userCodes).map(String), DEFAULT_ADMIN_REFERRAL_CODE]);
-            const newCode = computeDeterministicSixDigitCode(normKey, usedSet);
-            ap.userCodes[normKey] = newCode;
+            const code = computeDeterministicSixDigitCode(normKey, usedSet);
+            ap.userCodes[normKey] = code;
             safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
-            return newCode;
+            return code;
         }
 
-        function findReferrerBySixDigitCode(codeInput) {
-            const code = String(codeInput || '').replace(/\D/g, '').slice(0, 6);
-            if (code.length !== 6) return null;
+        function findReferrerBySixDigitCode(codeStr) {
+            const cleanCode = String(codeStr || '').replace(/\D/g, '').slice(0, 6);
+            if (cleanCode.length !== 6) return null;
+            if (cleanCode === DEFAULT_ADMIN_REFERRAL_CODE) {
+                return { userKey: DEFAULT_ADMIN_REFERRER_KEY, code: DEFAULT_ADMIN_REFERRAL_CODE, name: DEFAULT_ADMIN_REFERRER_NAME };
+            }
             const ap = ensureAffiliateProgramConfig();
-            if (code === DEFAULT_ADMIN_REFERRAL_CODE) {
-                return {
-                    userKey: DEFAULT_ADMIN_REFERRER_KEY,
-                    code: DEFAULT_ADMIN_REFERRAL_CODE,
-                    name: DEFAULT_ADMIN_REFERRER_NAME,
-                    phone: '9999999999'
-                };
-            }
             const users = getDeduplicatedAdminUsers();
-            users.forEach(u => {
+            const foundEntry = Object.entries(ap.userCodes || {}).find(([, c]) => String(c) === cleanCode);
+            if (!foundEntry) return null;
+            const targetKey = foundEntry[0];
+            const matchedUser = users.find(u => {
                 const ph = extractCleanPhone(u.phone || '');
-                const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
-                if (uKey) getOrCreateUserSixDigitReferralCode(uKey);
+                const uKey = (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase()).trim();
+                return uKey === targetKey;
             });
-            for (const [uKey, mappedCode] of Object.entries(ap.userCodes)) {
-                if (String(mappedCode) === code) {
-                    if (uKey === DEFAULT_ADMIN_REFERRER_KEY) {
-                        return {
-                            userKey: DEFAULT_ADMIN_REFERRER_KEY,
-                            code: DEFAULT_ADMIN_REFERRAL_CODE,
-                            name: DEFAULT_ADMIN_REFERRER_NAME,
-                            phone: '9999999999'
-                        };
-                    }
-                    const matchedUser = users.find(u => {
-                        const ph = extractCleanPhone(u.phone || '');
-                        const k = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
-                        return k === uKey;
-                    });
-                    return {
-                        userKey: uKey,
-                        code,
-                        name: matchedUser?.name || uKey.replace(/^phone_/, '+91 '),
-                        phone: extractCleanPhone(matchedUser?.phone || uKey.replace(/^phone_/, ''))
-                    };
-                }
+            return {
+                userKey: targetKey,
+                code: cleanCode,
+                name: matchedUser?.name || targetKey.replace(/^phone_/, '+91 ')
+            };
+        }
+
+        function handleGateReferralCodeInput(rawVal) {
+            const inp = document.getElementById('gate-input-referral-code');
+            const ownerEl = document.getElementById('gate-referral-owner-display');
+            const resetBtn = document.getElementById('gate-reset-referral-btn');
+            const digits = String(rawVal || '').replace(/\D/g, '').slice(0, 6);
+            if (inp && inp.value !== digits) inp.value = digits;
+
+            if (resetBtn) {
+                resetBtn.classList.toggle('hidden', digits === DEFAULT_ADMIN_REFERRAL_CODE);
             }
-            return null;
+            if (!ownerEl) return;
+
+            if (!digits) {
+                ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug';
+                ownerEl.innerHTML = '<span><i class="fa-solid fa-circle-check mr-1"></i> Default applies: <strong>Admin (Code: 432542)</strong></span>';
+                return;
+            }
+            if (digits.length < 6) {
+                ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[10.5px] font-bold text-amber-700 dark:text-amber-300 flex items-center justify-between gap-1.5 leading-snug';
+                ownerEl.innerHTML = `<span><i class="fa-solid fa-keyboard mr-1"></i> Enter all 6 digits (${digits.length}/6)...</span>`;
+                return;
+            }
+            const ref = findReferrerBySixDigitCode(digits);
+            if (ref) {
+                ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug';
+                ownerEl.innerHTML = `<span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>${ref.name} (Code: ${ref.code})</strong></span>`;
+            } else {
+                ownerEl.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-[10.5px] font-bold text-rose-600 dark:text-rose-300 flex items-center justify-between gap-1.5 leading-snug';
+                ownerEl.innerHTML = `<span><i class="fa-solid fa-triangle-exclamation mr-1"></i> Code "${digits}" not found — Admin (432542) will apply if kept.</span>`;
+            }
         }
 
         function resetGateReferralCodeToAdmin() {
@@ -15960,45 +16055,7 @@ ${JSON.stringify(liveSnapshot)}`;
             handleGateReferralCodeInput(DEFAULT_ADMIN_REFERRAL_CODE);
         }
 
-        function handleGateReferralCodeInput(rawVal) {
-            const inp = document.getElementById('gate-input-referral-code');
-            const cleanCode = String(rawVal ?? inp?.value ?? '').replace(/\D/g, '').slice(0, 6);
-            if (inp && inp.value !== cleanCode) inp.value = cleanCode;
-
-            const ownerBox = document.getElementById('gate-referral-owner-display');
-            const resetBtn = document.getElementById('gate-reset-referral-btn');
-            if (!ownerBox) return;
-
-            if (resetBtn) {
-                resetBtn.classList.toggle('hidden', cleanCode === DEFAULT_ADMIN_REFERRAL_CODE);
-            }
-
-            if (!cleanCode) {
-                ownerBox.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-neutral-200/70 dark:bg-neutral-800 border border-neutral-300/70 dark:border-neutral-700 text-[10.5px] font-bold text-neutral-600 dark:text-neutral-300 flex items-center justify-between gap-1.5 leading-snug';
-                ownerBox.innerHTML = `<span><i class="fa-solid fa-info-circle text-primary-600 mr-1"></i> Optional: खाली छोड़ने पर <strong>Admin (432542)</strong> लागू होगा</span>`;
-                return;
-            }
-
-            if (cleanCode.length < 6) {
-                ownerBox.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[10.5px] font-bold text-amber-700 dark:text-amber-300 flex items-center justify-between gap-1.5 leading-snug';
-                ownerBox.innerHTML = `<span><i class="fa-solid fa-keyboard mr-1"></i> पूरा 6-अंकों का कोड दर्ज करें (${cleanCode.length}/6)</span>`;
-                return;
-            }
-
-            const referrer = findReferrerBySixDigitCode(cleanCode);
-            if (referrer) {
-                const isDefaultAdmin = referrer.code === DEFAULT_ADMIN_REFERRAL_CODE;
-                ownerBox.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-1.5 leading-snug';
-                ownerBox.innerHTML = isDefaultAdmin
-                    ? `<span><i class="fa-solid fa-circle-check mr-1"></i> Referred by: <strong>Admin (Code: 432542)</strong></span>`
-                    : `<span><i class="fa-solid fa-user-check mr-1"></i> Referred by: <strong>${referrer.name}</strong> (Code: ${referrer.code})</span>`;
-            } else {
-                ownerBox.className = 'mt-1.5 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[10.5px] font-bold text-rose-600 dark:text-rose-400 flex items-center justify-between gap-1.5 leading-snug';
-                ownerBox.innerHTML = `<span><i class="fa-solid fa-triangle-exclamation mr-1"></i> अमान्य/अज्ञात कोड (${cleanCode}) — वैध फ्रेंड कोड डालें या Reset करें</span>`;
-            }
-        }
-
-        function registerPendingAffiliateReferral({ referralCode, referredUserKey, referredName, referredPhone, referredEmail }) {
+        async function registerPendingAffiliateReferral({ referralCode, referredUserKey, referredName, referredPhone, referredEmail }) {
             const ap = ensureAffiliateProgramConfig();
             if (!ap.enabled) return false;
             const digitsOnly = String(referralCode || '').replace(/\D/g, '').slice(0, 6);
@@ -16017,27 +16074,32 @@ ${JSON.stringify(liveSnapshot)}`;
             };
             if (referrer.userKey === normReferredKey) return false;
 
-            if (ap.referrals.some(r => r.referredUserKey === normReferredKey)) return false;
-
-            ap.referrals.unshift({
-                id: `ref_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-                referrerUserKey: referrer.userKey,
-                referrerName: referrer.name,
-                referralCode: referrer.code,
-                referredUserKey: normReferredKey,
-                referredName: referredName || 'User',
-                referredPhone: extractCleanPhone(referredPhone || ''),
-                referredEmail: (referredEmail || '').trim().toLowerCase(),
-                status: 'pending',
-                counted: false,
-                pointsAwarded: 0,
-                purchasedPlanName: '',
-                purchasedAmount: 0,
-                signedUpAt: new Date().toISOString(),
-                completedAt: null
-            });
+            if (!ap.referrals.some(r => String(r.referredUserKey || '').toLowerCase() === normReferredKey)) {
+                ap.referrals.unshift({
+                    id: `ref_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                    referrerUserKey: referrer.userKey,
+                    referrerName: referrer.name,
+                    referralCode: referrer.code,
+                    referredUserKey: normReferredKey,
+                    referredName: referredName || 'User',
+                    referredPhone: extractCleanPhone(referredPhone || ''),
+                    referredEmail: (referredEmail || '').trim().toLowerCase(),
+                    status: 'pending',
+                    counted: false,
+                    pointsAwarded: 0,
+                    purchasedPlanName: '',
+                    purchasedAmount: 0,
+                    signedUpAt: new Date().toISOString(),
+                    completedAt: null
+                });
+            }
 
             safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+            if (typeof window.syncAffiliateConfigToCloud === 'function') {
+                await window.syncAffiliateConfigToCloud(normReferredKey, referrer.code);
+            }
+            if (typeof renderCustomerAffiliateHubCard === 'function') renderCustomerAffiliateHubCard();
+            if (typeof renderAdminAffiliateStudio === 'function') renderAdminAffiliateStudio();
             return true;
         }
 
@@ -16275,9 +16337,15 @@ ${JSON.stringify(liveSnapshot)}`;
             const q = (document.getElementById('adm-aff-search')?.value || '').toLowerCase().trim();
             const users = getDeduplicatedAdminUsers();
 
-            const rows = users.map(u => {
+            // Always include Master Admin (432542) plus all registered users in the Admin Affiliate Studio
+            const directoryEntries = [
+                { uid: DEFAULT_ADMIN_REFERRER_KEY, name: 'Master Admin (Default 432542)', phone: '9999999999', email: 'admin@neokhata.app', isAdminRow: true },
+                ...users
+            ];
+
+            const rows = directoryEntries.map(u => {
                 const ph = extractCleanPhone(u.phone || '');
-                const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
+                const uKey = u.isAdminRow ? DEFAULT_ADMIN_REFERRER_KEY : (ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase());
                 if (!uKey) return null;
                 const summary = getUserAffiliateSummary(uKey);
                 const matchesUser = `${u.name || ''} ${ph} ${u.email || ''} ${summary.code}`.toLowerCase().includes(q);
@@ -16932,11 +17000,37 @@ ${JSON.stringify(liveSnapshot)}`;
                         if (!snap.exists()) return;
                         const data = snap.val() || {};
                         if (data.adminConfig && typeof adminConfig !== 'undefined') {
-                            adminConfig = { ...adminConfig, ...data.adminConfig };
+                            const localAp = (adminConfig.affiliateProgram && typeof adminConfig.affiliateProgram === 'object') ? adminConfig.affiliateProgram : {};
+                            const remoteAp = (data.adminConfig.affiliateProgram && typeof data.adminConfig.affiliateProgram === 'object') ? data.adminConfig.affiliateProgram : {};
+                            const mergedRefsMap = new Map();
+                            [
+                                ...(typeof normalizeCollectionToArray === 'function' ? normalizeCollectionToArray(remoteAp.referrals) : []),
+                                ...(typeof normalizeCollectionToArray === 'function' ? normalizeCollectionToArray(localAp.referrals) : [])
+                            ].forEach(r => {
+                                if (!r || !r.referredUserKey) return;
+                                const k = String(r.referredUserKey).toLowerCase();
+                                const prev = mergedRefsMap.get(k);
+                                mergedRefsMap.set(k, (prev && prev.status === 'done') ? prev : { ...(prev || {}), ...r });
+                            });
+
+                            adminConfig = {
+                                ...adminConfig,
+                                ...data.adminConfig,
+                                affiliateProgram: {
+                                    ...localAp,
+                                    ...remoteAp,
+                                    userCodes: { ...(localAp.userCodes || {}), ...(remoteAp.userCodes || {}) },
+                                    userRewards: { ...(localAp.userRewards || {}), ...(remoteAp.userRewards || {}) },
+                                    referrals: Array.from(mergedRefsMap.values())
+                                }
+                            };
+                            if (typeof ensureAffiliateProgramConfig === 'function') ensureAffiliateProgramConfig();
                             localStorage.setItem('khataflow_admin_config', JSON.stringify(adminConfig));
                             if (typeof applyAdminConfigToUI === 'function') applyAdminConfigToUI();
                             if (typeof apply70FeatureOverridesLive === 'function') apply70FeatureOverridesLive();
                             if (typeof updateSubscriptionStatusBadges === 'function') updateSubscriptionStatusBadges();
+                            if (typeof renderCustomerAffiliateHubCard === 'function') renderCustomerAffiliateHubCard();
+                            if (typeof renderAdminAffiliateStudio === 'function') renderAdminAffiliateStudio();
                         }
                         if (Array.isArray(data.sponsoredAds) && data.sponsoredAds.length > 0 && typeof SPONSORED_ADS_LIST !== 'undefined') {
                             SPONSORED_ADS_LIST = data.sponsoredAds;
@@ -16954,7 +17048,9 @@ ${JSON.stringify(liveSnapshot)}`;
                         if (!snap.exists()) return;
                         const allWs = snap.val() || {};
                         localStorage.setItem('khataflow_admin_all_workspaces', JSON.stringify(allWs));
+                        if (typeof ensureAffiliateProgramConfig === 'function') ensureAffiliateProgramConfig();
                         if (typeof renderAdminUsersList === 'function') renderAdminUsersList();
+                        if (typeof renderAdminAffiliateStudio === 'function') renderAdminAffiliateStudio();
                         if (typeof updateAdminDashboardMetrics === 'function') updateAdminDashboardMetrics();
                     });
                 } catch (e) {}
@@ -16991,12 +17087,33 @@ ${JSON.stringify(liveSnapshot)}`;
                     });
                 } catch (e) {}
             }
-
             if (db) {
                 try {
-                    activeWsUnsub = onSnapshot(doc(db, 'neokhata_workspaces', wsId), (snap) => {
-                        if (snap.exists()) handleRemoteWorkspaceSnapshot(snap.data());
+                    activeWsUnsub = onSnapshot(doc(db, 'neokhata_workspaces', wsId), (docSnap) => {
+                        if (docSnap.exists()) handleRemoteWorkspaceSnapshot(docSnap.data());
                     });
+                } catch (e) {}
+            }
+        };
+
+        window.syncAffiliateConfigToCloud = async function(referredUserKey = '', appliedCode = '') {
+            await ensureCloudReady();
+            if (typeof ensureAffiliateProgramConfig === 'function') ensureAffiliateProgramConfig();
+            const cleanConfig = sanitizeForRtdb({ ...adminConfig, updatedAt: Date.now() });
+            if (rtdb) {
+                try {
+                    await update(ref(rtdb, 'neokhata_system/global_config'), { adminConfig: cleanConfig, updatedAt: Date.now() });
+                    if (referredUserKey && appliedCode) {
+                        await update(ref(rtdb, `neokhata_users/${referredUserKey}`), { referredByCode: appliedCode });
+                    }
+                } catch (e) {}
+            }
+            if (db) {
+                try {
+                    await setDoc(doc(db, 'neokhata_system', 'global_config'), { adminConfig: cleanConfig, updatedAt: Date.now() }, { merge: true });
+                    if (referredUserKey && appliedCode) {
+                        await setDoc(doc(db, 'neokhata_users', referredUserKey), { referredByCode: appliedCode }, { merge: true });
+                    }
                 } catch (e) {}
             }
         };
