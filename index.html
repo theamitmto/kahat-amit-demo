@@ -850,9 +850,16 @@
                 <div class="relative space-y-4">
                     <!-- Top Status Row -->
                     <div class="flex items-center justify-between gap-2 flex-wrap">
-                        <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Financial Command
-                        </span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Financial Command
+                            </span>
+                            <button type="button" id="dash-hero-neo-id-pill" onclick="copyCurrentUserNeoId()" title="Click to copy your Unique NeoKhata ID for support" class="hidden px-2.5 py-1 rounded-full bg-primary-600/10 hover:bg-primary-600/20 dark:bg-primary-500/20 text-[10px] font-mono font-black tracking-wider text-primary-700 dark:text-primary-300 border border-primary-500/30 items-center gap-1.5 transition active:scale-95">
+                                <i class="fa-solid fa-id-badge text-[10px]"></i>
+                                <span id="dash-hero-neo-id-text">NEOKHATA00000</span>
+                                <i class="fa-regular fa-copy text-[9px] opacity-80"></i>
+                            </button>
+                        </div>
                         <span id="dash-live-date-badge" class="text-[11px] font-bold text-neutral-500 dark:text-slate-300 bg-neutral-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-neutral-200/80 dark:border-white/10"></span>
                     </div>
 
@@ -5674,6 +5681,172 @@
             return appState.userProfile?.name || getAuthSession()?.name || 'User';
         }
 
+        // ================= UNIQUE NEOKHATA SYSTEM ID ENGINE (NEOKHATA + 5 DIGITS) =================
+        function isValidNeoKhataSystemId(id) {
+            return /^NEOKHATA\d{5}$/.test(String(id || '').trim().toUpperCase());
+        }
+
+        function getAllExistingNeoKhataIds(extraExcludeSet = new Set()) {
+            const used = new Set();
+            extraExcludeSet.forEach(x => { if (isValidNeoKhataSystemId(x)) used.add(String(x).toUpperCase()); });
+            try {
+                const rawUsers = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]');
+                (Array.isArray(rawUsers) ? rawUsers : []).forEach(u => {
+                    if (isValidNeoKhataSystemId(u?.neoUserId)) used.add(String(u.neoUserId).toUpperCase());
+                });
+            } catch (e) {}
+            try {
+                const allWs = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
+                Object.values(allWs || {}).forEach(ws => {
+                    const id1 = ws?.neoUserId || ws?.userProfile?.neoUserId;
+                    if (isValidNeoKhataSystemId(id1)) used.add(String(id1).toUpperCase());
+                });
+            } catch (e) {}
+            if (isValidNeoKhataSystemId(appState?.userProfile?.neoUserId)) {
+                used.add(String(appState.userProfile.neoUserId).toUpperCase());
+            }
+            const sess = getAuthSession();
+            if (isValidNeoKhataSystemId(sess?.neoUserId)) {
+                used.add(String(sess.neoUserId).toUpperCase());
+            }
+            if (adminConfig?.neoUserIdIndex && typeof adminConfig.neoUserIdIndex === 'object') {
+                Object.keys(adminConfig.neoUserIdIndex).forEach(k => {
+                    if (isValidNeoKhataSystemId(k)) used.add(String(k).toUpperCase());
+                });
+            }
+            return used;
+        }
+
+        function generateUniqueNeoKhataUserId(extraExcludeSet = new Set()) {
+            const used = getAllExistingNeoKhataIds(extraExcludeSet);
+            let candidate = '';
+            let attempts = 0;
+            do {
+                const num = Math.floor(Math.random() * 100000);
+                candidate = `NEOKHATA${String(num).padStart(5, '0')}`;
+                attempts++;
+            } while (used.has(candidate) && attempts < 120000);
+            used.add(candidate);
+            return candidate;
+        }
+
+        function ensureAllUsersHaveUniqueNeoKhataIds() {
+            let changed = false;
+            const seenIds = new Set();
+            if (!adminConfig.neoUserIdIndex || typeof adminConfig.neoUserIdIndex !== 'object') {
+                adminConfig.neoUserIdIndex = {};
+            }
+
+            let rawUsers = [];
+            try { rawUsers = JSON.parse(localStorage.getItem('khataflow_registered_users') || '[]'); } catch (e) { rawUsers = []; }
+            if (!Array.isArray(rawUsers)) rawUsers = [];
+
+            let allWs = {};
+            try { allWs = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}'); } catch (e) { allWs = {}; }
+
+            const newlyAllottedSyncQueue = [];
+
+            rawUsers = rawUsers.map(u => {
+                if (!u || typeof u !== 'object') return u;
+                const ph = extractCleanPhone(u.phone || u.username || '');
+                const em = (u.email || '').trim().toLowerCase();
+                const uKey = ph.length === 10 ? `phone_${ph}` : (em || u.uid || '');
+                if (!uKey || uKey === 'master_admin') return u;
+
+                const wsIdFromWs = allWs[uKey]?.neoUserId || allWs[uKey]?.userProfile?.neoUserId || '';
+                let assigned = String(u.neoUserId || wsIdFromWs || '').trim().toUpperCase();
+                if (!isValidNeoKhataSystemId(assigned) || seenIds.has(assigned)) {
+                    assigned = generateUniqueNeoKhataUserId(seenIds);
+                    changed = true;
+                    newlyAllottedSyncQueue.push({ user: { ...u, uid: uKey, neoUserId: assigned }, uKey });
+                }
+                seenIds.add(assigned);
+                adminConfig.neoUserIdIndex[assigned] = uKey;
+
+                if (allWs[uKey] && typeof allWs[uKey] === 'object') {
+                    if (allWs[uKey].neoUserId !== assigned || allWs[uKey].userProfile?.neoUserId !== assigned) {
+                        allWs[uKey].neoUserId = assigned;
+                        allWs[uKey].userProfile = { ...(allWs[uKey].userProfile || {}), neoUserId: assigned };
+                        changed = true;
+                    }
+                }
+                return { ...u, neoUserId: assigned };
+            });
+
+            // Also ensure any workspace without a user row gets its own unique NEOKHATA + 5-digit ID
+            Object.entries(allWs).forEach(([wsKey, ws]) => {
+                if (!ws || typeof ws !== 'object' || wsKey === 'master_admin') return;
+                let assigned = String(ws.neoUserId || ws.userProfile?.neoUserId || '').trim().toUpperCase();
+                if (!isValidNeoKhataSystemId(assigned) || seenIds.has(assigned)) {
+                    assigned = generateUniqueNeoKhataUserId(seenIds);
+                    ws.neoUserId = assigned;
+                    ws.userProfile = { ...(ws.userProfile || {}), neoUserId: assigned };
+                    changed = true;
+                }
+                seenIds.add(assigned);
+                adminConfig.neoUserIdIndex[assigned] = wsKey;
+            });
+
+            // Sync currently logged-in user's session & appState
+            const sess = getAuthSession();
+            if (sess && sess.isLoggedIn && sess.role !== 'admin') {
+                const ph = extractCleanPhone(sess.phone || appState.userProfile?.phone || '');
+                const em = (sess.email || appState.userProfile?.email || '').trim().toLowerCase();
+                const uKey = ph.length === 10 ? `phone_${ph}` : (em || sess.uid || '');
+                const matchedU = rawUsers.find(u => {
+                    const uPh = extractCleanPhone(u.phone || '');
+                    const uEm = (u.email || '').trim().toLowerCase();
+                    return (ph && uPh === ph) || (em && uEm === em);
+                });
+                let myId = String(matchedU?.neoUserId || sess.neoUserId || appState.userProfile?.neoUserId || '').trim().toUpperCase();
+                if (!isValidNeoKhataSystemId(myId)) {
+                    myId = generateUniqueNeoKhataUserId(seenIds);
+                    changed = true;
+                }
+                seenIds.add(myId);
+                if (uKey) adminConfig.neoUserIdIndex[myId] = uKey;
+                if (sess.neoUserId !== myId) {
+                    setAuthSession({ ...sess, neoUserId: myId });
+                }
+                if (!appState.userProfile) appState.userProfile = {};
+                if (appState.userProfile.neoUserId !== myId) {
+                    appState.userProfile.neoUserId = myId;
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                safeLocalStorageSet('khataflow_registered_users', JSON.stringify(rawUsers));
+                safeLocalStorageSet('khataflow_admin_all_workspaces', JSON.stringify(allWs));
+                safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
+                if (newlyAllottedSyncQueue.length > 0 && typeof window.syncNewlyAllottedNeoIdsToCloud === 'function') {
+                    window.syncNewlyAllottedNeoIdsToCloud(newlyAllottedSyncQueue, allWs).catch(() => {});
+                }
+            }
+            return rawUsers;
+        }
+
+        function getCurrentUserNeoKhataId() {
+            const sess = getAuthSession();
+            if (!sess || !sess.isLoggedIn || sess.role === 'admin') return '';
+            if (isValidNeoKhataSystemId(appState?.userProfile?.neoUserId)) return String(appState.userProfile.neoUserId).toUpperCase();
+            if (isValidNeoKhataSystemId(sess.neoUserId)) return String(sess.neoUserId).toUpperCase();
+            ensureAllUsersHaveUniqueNeoKhataIds();
+            return String(appState?.userProfile?.neoUserId || getAuthSession()?.neoUserId || '').toUpperCase();
+        }
+
+        function copyCurrentUserNeoId(explicitId = '') {
+            const idToCopy = String(explicitId || getCurrentUserNeoKhataId() || '').trim().toUpperCase();
+            if (!idToCopy) return;
+            const ta = document.createElement('textarea');
+            ta.value = idToCopy;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast(`Copied Unique ID: ${idToCopy}`);
+        }
+
         function ensureUnifiedPrimaryMember() {
             const name = getPrimaryUserName();
             const upi = appState.userProfile?.upi || appState.merchantUpi || '9876543210@upi';
@@ -5692,6 +5865,7 @@
             if (sess.name && (!appState.userProfile.name || appState.userProfile.name === 'User')) appState.userProfile.name = sess.name;
             if (sess.phone && !appState.userProfile.phone) appState.userProfile.phone = sess.phone;
             if (sess.email && !appState.userProfile.email) appState.userProfile.email = sess.email;
+            ensureAllUsersHaveUniqueNeoKhataIds();
             ensureUnifiedPrimaryMember();
             updateAuthUI();
         }
@@ -5716,6 +5890,20 @@
                 renderCustomerAffiliateHubCard();
             }
 
+            const myNeoId = !isAdmin ? getCurrentUserNeoKhataId() : '';
+            const heroNeoPill = document.getElementById('dash-hero-neo-id-pill');
+            const heroNeoTxt = document.getElementById('dash-hero-neo-id-text');
+            if (heroNeoPill && heroNeoTxt) {
+                if (myNeoId) {
+                    heroNeoTxt.textContent = myNeoId;
+                    heroNeoPill.classList.remove('hidden');
+                    heroNeoPill.classList.add('inline-flex');
+                } else {
+                    heroNeoPill.classList.add('hidden');
+                    heroNeoPill.classList.remove('inline-flex');
+                }
+            }
+
             const profileCard = document.getElementById('menu-profile-card');
             if (profileCard && sess) {
                 const uName = getPrimaryUserName();
@@ -5731,6 +5919,21 @@
                             </div>
                             <button type="button" onclick="toggleSideMenu(false); openEditSelfUpiModal()" class="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs" title="Edit Profile"><i class="fa-solid fa-pen"></i></button>
                         </div>
+                        ${myNeoId ? `
+                        <div class="p-2.5 rounded-xl bg-black/20 border border-white/20 space-y-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <span class="text-[8.5px] font-black uppercase tracking-wider text-sky-200 block">Your Unique System ID</span>
+                                    <span class="font-mono text-xs sm:text-sm font-black tracking-wider text-white select-all">${myNeoId}</span>
+                                </div>
+                                <button type="button" onclick="copyCurrentUserNeoId('${myNeoId}')" class="px-2.5 py-1 rounded-lg bg-white text-primary-700 hover:bg-sky-50 font-black text-[10px] flex items-center gap-1 flex-shrink-0 shadow-2xs active:scale-95">
+                                    <i class="fa-regular fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <div class="text-[9.5px] text-white/85 leading-snug">
+                                <i class="fa-solid fa-headset mr-1 text-amber-300"></i>Support या किसी समस्या के समय यह ID बताने पर आपका अकाउंट तुरंत ट्रैक और हल किया जाएगा।
+                            </div>
+                        </div>` : ''}
                         <div class="pt-2 border-t border-white/15 flex items-center justify-between text-[10px]">
                             <span class="flex items-center gap-1.5 font-bold"><span id="cloud-sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> <span id="cloud-sync-text">Cloud Synced</span></span>
                             <button type="button" onclick="forcePullUserCloudData()" class="underline font-extrabold">Sync Now</button>
@@ -6164,7 +6367,8 @@
                         ? await window.firebaseRegister(email, password, fullName, phone, dob, computedAge)
                         : (() => { throw new Error('Firebase service unavailable. Please check internet connection and try again.'); })();
                     updateLiveProcessOverlay({ step: 'Account created & synced to Firebase! Preparing workspace...', progress: 85 });
-                    const sess = { isLoggedIn: true, role: 'user', uid: res.user.uid, name: fullName, phone, email, dob, age: computedAge, username: phone };
+                    const assignedNeoId = res.user.neoUserId || generateUniqueNeoKhataUserId();
+                    const sess = { isLoggedIn: true, role: 'user', uid: res.user.uid, neoUserId: assignedNeoId, name: fullName, phone, email, dob, age: computedAge, username: phone };
                     setAuthSession(sess);
 
                     // Register user in local & cloud directory immediately so Admin & Multi-Device always see it
@@ -6174,6 +6378,7 @@
                     const newRegEntry = {
                         uid: res.user.uid,
                         primaryUid: `phone_${phone}`,
+                        neoUserId: assignedNeoId,
                         name: fullName,
                         phone,
                         email,
@@ -6192,7 +6397,8 @@
                     safeLocalStorageSet('khataflow_registered_users', JSON.stringify(regList));
 
                     appState = createEmptyAppState();
-                    appState.userProfile = { name: fullName, phone, email, dob, age: computedAge, referredByCode: referralCodeInput, upi: `${phone}@upi`, registered: true, createdAt: new Date().toISOString() };
+                    appState.neoUserId = assignedNeoId;
+                    appState.userProfile = { name: fullName, phone, email, dob, age: computedAge, neoUserId: assignedNeoId, referredByCode: referralCodeInput, upi: `${phone}@upi`, registered: true, createdAt: new Date().toISOString() };
                     appState.merchantPhone = phone;
                     appState.merchantUpi = `${phone}@upi`;
                     if (typeof registerPendingAffiliateReferral === 'function') {
@@ -6212,7 +6418,7 @@
                     hideLiveProcessOverlay();
                     dismissAuthGate();
                     if (typeof window.attachMultiDeviceListeners === 'function') window.attachMultiDeviceListeners();
-                    showToast(`Welcome ${fullName}! Registration synced to Firebase.`);
+                    showToast(`Welcome ${fullName}! Your Unique ID: ${assignedNeoId}`);
                 } catch (err) {
                     hideLiveProcessOverlay();
                     refreshAuthCaptcha();
@@ -6303,7 +6509,7 @@
                     updateLiveProcessOverlay({ step: 'Verified! Syncing your Firebase cloud data...', progress: 80 });
                     const u = res.user;
                     const cleanPhone = u.phone || extractCleanPhone(identifier);
-                    const sess = { isLoggedIn: true, role: 'user', uid: u.uid, name: u.displayName || 'User', phone: cleanPhone, email: u.email || '', username: cleanPhone || identifier };
+                    const sess = { isLoggedIn: true, role: 'user', uid: u.uid, neoUserId: u.neoUserId || '', name: u.displayName || 'User', phone: cleanPhone, email: u.email || '', username: cleanPhone || identifier };
                     setAuthSession(sess);
 
                     // Restore per-user local workspace snapshot immediately before cloud sync finishes
@@ -6522,7 +6728,13 @@
             if (remote.categoryBudgets) appState.categoryBudgets = parseObj(remote.categoryBudgets, {});
             if (remote.merchantPhone) appState.merchantPhone = remote.merchantPhone;
             if (remote.merchantUpi) appState.merchantUpi = remote.merchantUpi;
+            if (remote.neoUserId && isValidNeoKhataSystemId(remote.neoUserId)) {
+                appState.neoUserId = String(remote.neoUserId).toUpperCase();
+            }
             if (remote.userProfile) appState.userProfile = { ...(appState.userProfile || {}), ...parseObj(remote.userProfile, {}) };
+            if (appState.neoUserId && (!appState.userProfile.neoUserId || !isValidNeoKhataSystemId(appState.userProfile.neoUserId))) {
+                appState.userProfile.neoUserId = appState.neoUserId;
+            }
             if (remote.transactions !== undefined) appState.transactions = parseArr(remote.transactions, []);
             if (remote.splitMembers !== undefined) appState.splitMembers = parseArr(remote.splitMembers, []);
             if (remote.splitBills !== undefined) appState.splitBills = parseArr(remote.splitBills, []);
@@ -6544,6 +6756,7 @@
         window.syncCloudUsersToLocal = function(cloudUsers) {
             if (!Array.isArray(cloudUsers)) return;
             localStorage.setItem('khataflow_registered_users', JSON.stringify(cloudUsers));
+            ensureAllUsersHaveUniqueNeoKhataIds();
             renderAdminUsersList();
             updateAdminDashboardMetrics();
         };
@@ -6604,18 +6817,18 @@
             setTxt('dash-7days', `₹${exp7.toLocaleString('en-IN')}`);
             setTxt('dash-30days', `₹${exp30.toLocaleString('en-IN')}`);
             setTxt('dash-lifetime', `₹${totalExp.toLocaleString('en-IN')}`);
-            setTxt('dash-total-logs-badge', `${(appState.transactions || []).length} Entries`);
 
-            const recentEl = document.getElementById('dash-recent-activity-list');
-            if (recentEl) {
-                const recent = (appState.transactions || []).slice(0, 5);
-                recentEl.innerHTML = recent.length ? recent.map(tx => {
+            const recentLogs = (appState.transactions || []).slice(0, 6);
+            setTxt('dash-total-logs-badge', `${(appState.transactions || []).length} Entries`);
+            const recentBox = document.getElementById('dash-recent-activity-list');
+            if (recentBox) {
+                recentBox.innerHTML = recentLogs.length ? recentLogs.map(tx => {
                     const isInc = tx.type === 'income';
-                    const dStr = new Date(tx.date || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-                    return `<div class="p-2.5 rounded-2xl bg-neutral-100/80 dark:bg-neutral-900/70 border border-neutral-200/70 dark:border-neutral-800 flex items-center justify-between gap-2 text-xs">
+                    const dt = new Date(tx.date || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                    return `<div class="p-2.5 rounded-2xl bg-neutral-100/80 dark:bg-neutral-800/70 border border-neutral-200/70 dark:border-neutral-800 flex items-center justify-between gap-2 text-xs">
                         <div class="min-w-0">
-                            <div class="font-bold truncate text-neutral-900 dark:text-white">${tx.note || tx.category}</div>
-                            <div class="text-[10px] text-neutral-400">${dStr} • ${tx.category || 'Other'} • ${tx.mode || 'UPI'}</div>
+                            <div class="font-bold text-neutral-900 dark:text-white truncate">${tx.note || tx.category}</div>
+                            <div class="text-[10px] text-neutral-400">${dt} • ${tx.category || 'Other'} • ${tx.mode || 'UPI'}</div>
                         </div>
                         <span class="font-black ${isInc ? 'text-emerald-600' : 'text-rose-600'} flex-shrink-0">${isInc ? '+' : '-'}₹${Number(tx.amount).toLocaleString('en-IN')}</span>
                     </div>`;
@@ -10085,9 +10298,11 @@
                 const key = cleanPhone.length === 10 ? `phone_${cleanPhone}` : (cleanEmail || u.uid || u.name);
                 if (!key) return;
                 const existing = map.get(key) || {};
+                const resolvedNeoId = String(u.neoUserId || existing.neoUserId || workspaces[key]?.neoUserId || workspaces[key]?.userProfile?.neoUserId || '').trim().toUpperCase();
                 map.set(key, {
                     ...existing,
                     ...u,
+                    neoUserId: isValidNeoKhataSystemId(resolvedNeoId) ? resolvedNeoId : '',
                     name: u.name || existing.name || 'User',
                     phone: cleanPhone || existing.phone || '',
                     email: cleanEmail || existing.email || ''
@@ -10102,9 +10317,11 @@
                 const cleanEmail = (ws.email || parsed.userProfile?.email || '').trim().toLowerCase();
                 const key = cleanPhone.length === 10 ? `phone_${cleanPhone}` : (cleanEmail || wsKey);
                 if (!key || map.has(key)) return;
+                const wsNeoId = String(ws.neoUserId || parsed.userProfile?.neoUserId || '').trim().toUpperCase();
                 map.set(key, {
                     uid: wsKey,
                     primaryUid: wsKey,
+                    neoUserId: isValidNeoKhataSystemId(wsNeoId) ? wsNeoId : '',
                     name: ws.name || parsed.userProfile?.name || (cleanPhone ? `User (${cleanPhone})` : wsKey),
                     phone: cleanPhone,
                     email: cleanEmail,
@@ -10119,9 +10336,11 @@
                 const em = (curSess.email || appState.userProfile?.email || '').trim().toLowerCase();
                 const key = ph.length === 10 ? `phone_${ph}` : (em || curSess.uid);
                 if (key && !map.has(key)) {
+                    const curNeoId = String(curSess.neoUserId || appState.userProfile?.neoUserId || '').trim().toUpperCase();
                     map.set(key, {
                         uid: curSess.uid || key,
                         primaryUid: key,
+                        neoUserId: isValidNeoKhataSystemId(curNeoId) ? curNeoId : '',
                         name: getPrimaryUserName(),
                         phone: ph,
                         email: em,
@@ -10190,6 +10409,7 @@
         function renderAdminUsersList() {
             const box = document.getElementById('admin-users-list');
             if (!box) return;
+            ensureAllUsersHaveUniqueNeoKhataIds();
             const allUsers = getDeduplicatedAdminUsers();
             if (document.getElementById('admin-users-total-pill')) {
                 document.getElementById('admin-users-total-pill').textContent = `Total Users: ${allUsers.length}`;
@@ -10199,7 +10419,7 @@
             }
 
             const q = (document.getElementById('admin-user-search-input')?.value || '').toLowerCase().trim();
-            const users = allUsers.filter(u => !q || `${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(q));
+            const users = allUsers.filter(u => !q || `${u.neoUserId || ''} ${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(q));
 
             box.innerHTML = users.map((u, idx) => {
                 const ws = getWorkspaceForAdminUser(u);
@@ -10209,6 +10429,7 @@
                 const shopCount = ws.groceryItems.length;
                 const ph = extractCleanPhone(u.phone || '');
                 const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
+                const neoId = String(u.neoUserId || ws.userProfile?.neoUserId || '').toUpperCase();
                 const statusMap = (adminConfig.userAccountStatuses && typeof adminConfig.userAccountStatuses === 'object') ? adminConfig.userAccountStatuses : {};
                 const accStatus = statusMap[uKey] || u.accountStatus || 'active';
                 const isActive = accStatus !== 'inactive';
@@ -10221,6 +10442,7 @@
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-black text-neutral-900 dark:text-white truncate">${u.name || 'User'}</span>
+                                ${neoId ? `<span onclick="event.stopPropagation(); copyCurrentUserNeoId('${neoId}')" title="Click to copy Unique ID" class="px-2 py-0.5 rounded-lg bg-primary-600/15 text-primary-700 dark:text-primary-300 border border-primary-500/30 font-mono text-[10px] font-black tracking-wider">${neoId}</span>` : ''}
                                 <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${isActive ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/15 text-rose-600'}">${isActive ? '● Active' : '○ Inactive'}</span>
                             </div>
                             <div class="text-[10px] text-neutral-500 font-mono truncate mt-0.5">${u.phone ? '+91 ' + u.phone : 'No Phone'} ${u.email ? '• ' + u.email : ''}</div>
@@ -10288,7 +10510,8 @@
             });
 
             const titleEl = document.getElementById('admin-inspector-title');
-            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-shield text-purple-600"></i> ${user.name} — Full Account Editor, Backup &amp; Restore`;
+            const inspNeoId = String(user.neoUserId || ws.userProfile?.neoUserId || '').toUpperCase();
+            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-shield text-purple-600"></i> ${user.name} ${inspNeoId ? `<span class="px-2 py-0.5 rounded-lg bg-primary-600/15 text-primary-600 font-mono text-[11px] font-black">${inspNeoId}</span>` : ''} — Full Account Editor, Backup &amp; Restore`;
 
             const bodyEl = document.getElementById('admin-inspector-body');
             if (bodyEl) {
@@ -10312,34 +10535,11 @@
 
                     <!-- Full Edit Account Info & Credentials Form -->
                     <form onsubmit="saveAdminEditedUserAccount(event, '${encodeURIComponent(key)}')" class="p-4 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-200 dark:border-neutral-700 space-y-3">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between flex-wrap gap-1.5">
                             <span class="font-black text-xs uppercase tracking-wider text-purple-600"><i class="fa-solid fa-pen-to-square mr-1"></i> Full Edit User Account Details</span>
-                            <span class="text-[10px] font-mono text-neutral-400">UID: ${user.uid || 'N/A'}</span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            <div>
-                                <label class="block text-[10px] font-bold text-neutral-500 mb-1">Full Name *</label>
-                                <input type="text" id="adm-edit-u-name" required value="${String(user.name || '').replace(/"/g, '&quot;')}" class="w-full p-2 rounded-xl bg-white dark:bg-neutral-900 border font-bold">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-neutral-500 mb-1">10-Digit Mobile *</label>
-                                <input type="tel" id="adm-edit-u-phone" maxlength="10" oninput="this.value=extractCleanPhone(this.value)" value="${extractCleanPhone(user.phone || '')}" class="w-full p-2 rounded-xl bg-white dark:bg-neutral-900 border font-mono font-bold">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-neutral-500 mb-1">Email Address</label>
-                                <input type="email" id="adm-edit-u-email" value="${String(user.email || '').replace(/"/g, '&quot;')}" class="w-full p-2 rounded-xl bg-white dark:bg-neutral-900 border font-semibold">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-neutral-500 mb-1">Monthly Budget (₹)</label>
-                                <input type="number" id="adm-edit-u-budget" min="0" value="${ws.budget || 15000}" class="w-full p-2 rounded-xl bg-white dark:bg-neutral-900 border font-black">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-neutral-500 mb-1">Business / Shop Name</label>
-                                <input type="text" id="adm-edit-u-business" value="${String(ws.userProfile?.businessName || '').replace(/"/g, '&quot;')}" placeholder="Optional shop name" class="w-full p-2 rounded-xl bg-white dark:bg-neutral-900 border font-semibold">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-neutral-500 mb-1">Set New Password (Leave blank to keep)</label>
-                                <input type="text" id="adm-edit-u-password" minlength="6" placeholder="Min 6 chars to reset" class="w-full p-2 rounded-xl bg-white dark:bg-neutral-900 border font-mono font-bold">
+                            <div class="flex items-center gap-2">
+                                ${inspNeoId ? `<span class="px-2 py-0.5 rounded-md bg-primary-600 text-white font-mono text-[10px] font-black">${inspNeoId}</span>` : ''}
+                                <span class="text-[10px] font-mono text-neutral-400">UID: ${user.uid || 'N/A'}</span>
                             </div>
                         </div>
                         <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1.5">
@@ -14613,6 +14813,7 @@ ${JSON.stringify(liveSnapshot)}`;
             const newUser = {
                 uid: `phone_${phone}`,
                 primaryUid: `phone_${phone}`,
+                neoUserId: generateUniqueNeoKhataUserId(),
                 name,
                 phone,
                 email,
@@ -14624,12 +14825,12 @@ ${JSON.stringify(liveSnapshot)}`;
             list.unshift(newUser);
             localStorage.setItem('khataflow_registered_users', JSON.stringify(list));
             if (typeof window.adminSaveSingleUserToCloud === 'function') {
-                await window.adminSaveSingleUserToCloud(newUser, `phone_${phone}`, { name, phone, email, budget: 15000, updatedAt: Date.now() });
+                await window.adminSaveSingleUserToCloud(newUser, `phone_${phone}`, { name, phone, email, neoUserId: newUser.neoUserId, userProfile: { name, phone, email, neoUserId: newUser.neoUserId }, budget: 15000, updatedAt: Date.now() });
             }
             closeAdminAddUserModal();
             renderAdminUsersList();
             updateAdminDashboardMetrics();
-            showToast(`Created & synced user "${name}"!`);
+            showToast(`Created & synced user "${name}" (${newUser.neoUserId})!`);
         }
 
         async function forceAdminCloudReSync() {
@@ -15568,7 +15769,7 @@ ${JSON.stringify(liveSnapshot)}`;
             const usersEl = document.getElementById('admin-sub-users-override-list');
             if (usersEl) {
                 const uq = (document.getElementById('adm-sub-user-search')?.value || '').toLowerCase().trim();
-                const users = getDeduplicatedAdminUsers().filter(u => !uq || `${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(uq));
+                const users = getDeduplicatedAdminUsers().filter(u => !uq || `${u.neoUserId || ''} ${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(uq));
                 usersEl.innerHTML = users.map(u => {
                     const ph = extractCleanPhone(u.phone || '');
                     const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
@@ -15589,7 +15790,7 @@ ${JSON.stringify(liveSnapshot)}`;
                         <div class="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 border space-y-2">
                             <div class="flex items-center justify-between gap-2">
                                 <div class="min-w-0 flex items-center gap-1.5 flex-wrap">
-                                    <span class="font-black truncate">${u.name || 'User'} <span class="font-mono text-[10px] text-neutral-400">${ph || u.email || ''}</span></span>
+                                    <span class="font-black truncate">${u.name || 'User'} ${u.neoUserId ? `<span class="px-1.5 py-0.5 rounded bg-primary-600/15 text-primary-600 font-mono text-[9.5px] font-black">${u.neoUserId}</span>` : ''} <span class="font-mono text-[10px] text-neutral-400">${ph || u.email || ''}</span></span>
                                     ${statusBadge}
                                 </div>
                                 <label class="flex items-center gap-1 font-black text-[10px] text-emerald-600 cursor-pointer flex-shrink-0">
@@ -15984,7 +16185,7 @@ ${JSON.stringify(liveSnapshot)}`;
             const listBox = document.getElementById('admin-lockout-users-list');
             if (!listBox) return;
             const uq = (document.getElementById('adm-lock-user-search')?.value || '').toLowerCase().trim();
-            const users = getDeduplicatedAdminUsers().filter(u => !uq || `${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(uq));
+            const users = getDeduplicatedAdminUsers().filter(u => !uq || `${u.neoUserId || ''} ${u.name || ''} ${u.phone || ''} ${u.email || ''}`.toLowerCase().includes(uq));
 
             listBox.innerHTML = users.length ? users.map((u, idx) => {
                 const ph = extractCleanPhone(u.phone || '');
@@ -16004,7 +16205,7 @@ ${JSON.stringify(liveSnapshot)}`;
                 return `
                     <div class="p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                         <div class="min-w-0 flex items-center gap-1.5 flex-wrap">
-                            <span class="font-black text-neutral-900 dark:text-white truncate">${u.name || 'User'} <span class="font-mono text-neutral-400">${ph || u.email || ''}</span></span>
+                            <span class="font-black text-neutral-900 dark:text-white truncate">${u.name || 'User'} ${u.neoUserId ? `<span class="px-1.5 py-0.5 rounded bg-primary-600/15 text-primary-600 font-mono text-[9.5px] font-black">${u.neoUserId}</span>` : ''} <span class="font-mono text-neutral-400">${ph || u.email || ''}</span></span>
                             ${statusBadge}
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap">
@@ -16752,7 +16953,7 @@ ${JSON.stringify(liveSnapshot)}`;
                 const uKey = ph.length === 10 ? `phone_${ph}` : (u.email || u.uid || '').toLowerCase();
                 if (!uKey || uKey === 'master_admin') return null;
                 const summary = getUserAffiliateSummary(uKey);
-                const matchesUser = `${u.name || ''} ${ph} ${u.email || ''} ${summary.code}`.toLowerCase().includes(q);
+                const matchesUser = `${u.neoUserId || ''} ${u.name || ''} ${ph} ${u.email || ''} ${summary.code}`.toLowerCase().includes(q);
                 const matchesChild = summary.allReferrals.some(r => `${r.referredName || ''} ${r.referredPhone || ''} ${r.purchasedPlanName || ''}`.toLowerCase().includes(q));
                 if (q && !matchesUser && !matchesChild) return null;
                 return { user: u, uKey, ph, summary };
@@ -16766,6 +16967,7 @@ ${JSON.stringify(liveSnapshot)}`;
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-black text-neutral-900 dark:text-white">${user.name || 'User'}</span>
+                                ${user.neoUserId ? `<span class="px-1.5 py-0.5 rounded bg-primary-600/15 text-primary-600 font-mono text-[9.5px] font-black">${user.neoUserId}</span>` : ''}
                                 <span class="font-mono text-[10px] text-neutral-400">${ph ? '+91 ' + ph : (user.email || uKey)}</span>
                                 <span class="px-2 py-0.5 rounded-lg bg-indigo-600 text-white font-mono font-black text-[10px]">Code: ${summary.code}</span>
                             </div>
@@ -16898,6 +17100,7 @@ ${JSON.stringify(liveSnapshot)}`;
 
             ensureSubscriptionConfig();
             ensureAffiliateProgramConfig();
+            ensureAllUsersHaveUniqueNeoKhataIds();
             ensureOfferPopupConfig();
             populateAdminOfferPopupStudio();
             applyAdminConfigToUI();
@@ -17081,9 +17284,33 @@ ${JSON.stringify(liveSnapshot)}`;
                 ? await hashPasswordSha256(password)
                 : btoa(unescape(encodeURIComponent(password)));
             const nowIso = new Date().toISOString();
+
+            // Collect existing cloud & local NEOKHATA + 5-digit IDs so newly generated ID is 100% unique
+            const cloudExcludeIds = new Set();
+            if (rtdb) {
+                try {
+                    const [uSnap, idIdxSnap] = await Promise.all([
+                        get(ref(rtdb, 'neokhata_users')).catch(() => null),
+                        get(ref(rtdb, 'neokhata_id_index')).catch(() => null)
+                    ]);
+                    if (uSnap && uSnap.exists()) {
+                        Object.values(uSnap.val() || {}).forEach(u => {
+                            if (u?.neoUserId) cloudExcludeIds.add(String(u.neoUserId).toUpperCase());
+                        });
+                    }
+                    if (idIdxSnap && idIdxSnap.exists()) {
+                        Object.keys(idIdxSnap.val() || {}).forEach(k => cloudExcludeIds.add(String(k).toUpperCase()));
+                    }
+                } catch (e) {}
+            }
+            const neoUserId = typeof generateUniqueNeoKhataUserId === 'function'
+                ? generateUniqueNeoKhataUserId(cloudExcludeIds)
+                : `NEOKHATA${String(Math.floor(Math.random() * 100000)).padStart(5, '0')}`;
+
             const userRecord = {
                 uid,
                 primaryUid: uid,
+                neoUserId,
                 name: fullName,
                 phone: cleanPh,
                 email: cleanEm,
@@ -17116,12 +17343,21 @@ ${JSON.stringify(liveSnapshot)}`;
                 throw new Error('यह Mobile Number या Email ID पहले से रजिस्टर्ड है। कृपया Login करें।');
             }
 
-            // Write immediately to Google Firebase (RTDB + Email Index + Firestore) in parallel
+            // Write immediately to Google Firebase (RTDB + Email Index + Unique ID Index + Firestore) in parallel
             const writeTasks = [];
             if (rtdb) {
                 writeTasks.push(set(ref(rtdb, `neokhata_users/${uid}`), sanitizeForRtdb(userRecord)));
                 writeTasks.push(set(ref(rtdb, `neokhata_email_index/${emailIndexKey}`), sanitizeForRtdb({
                     uid,
+                    neoUserId,
+                    phone: cleanPh,
+                    email: cleanEm,
+                    name: fullName,
+                    updatedAt: nowIso
+                })));
+                writeTasks.push(set(ref(rtdb, `neokhata_id_index/${neoUserId}`), sanitizeForRtdb({
+                    uid,
+                    neoUserId,
                     phone: cleanPh,
                     email: cleanEm,
                     name: fullName,
@@ -17136,7 +17372,7 @@ ${JSON.stringify(liveSnapshot)}`;
             regList.unshift(userRecord);
             localStorage.setItem('khataflow_registered_users', JSON.stringify(regList));
 
-            return { user: { uid, email: cleanEm, displayName: fullName, phone: cleanPh } };
+            return { user: { uid, neoUserId, email: cleanEm, displayName: fullName, phone: cleanPh } };
         };
 
         window.firebaseLogin = async function(identifier, password) {
@@ -17216,32 +17452,31 @@ ${JSON.stringify(liveSnapshot)}`;
                 notRegErr.code = 'NOT_REGISTERED';
                 throw notRegErr;
             }
-
-            // Block Inactive accounts immediately from logging in
-            const statusMap = (typeof adminConfig === 'object' && adminConfig?.userAccountStatuses) ? adminConfig.userAccountStatuses : {};
-            const effectiveAccStatus = statusMap[resolvedUid] || matched.accountStatus || 'active';
-            if (effectiveAccStatus === 'inactive') {
-                const inactiveErr = new Error('आपका अकाउंट वर्तमान में Inactive है। कृपया एडमिन से संपर्क करें।');
-                inactiveErr.code = 'ACCOUNT_INACTIVE';
-                throw inactiveErr;
-            }
-
-            const validPwd = typeof verifyStoredPasswordHash === 'function'
-                ? await verifyStoredPasswordHash(password, matched.passwordHash)
-                : (matched.passwordHash === btoa(unescape(encodeURIComponent(password))));
-            if (!validPwd) {
-                throw new Error('गलत पासवर्ड (Incorrect password)। कृपया सही पासवर्ड दर्ज करें।');
-            }
-
-            // Immediately update lastLoginAt (and upgrade legacy hash if needed) in Google Firebase
+            // Immediately update lastLoginAt (and auto-allot Unique NEOKHATA + 5-digit ID if missing) in Google Firebase
             const nowIso = new Date().toISOString();
             const updateFields = { lastLoginAt: nowIso };
+            let resolvedNeoId = String(matched.neoUserId || '').trim().toUpperCase();
+            if (!/^NEOKHATA\d{5}$/.test(resolvedNeoId)) {
+                resolvedNeoId = typeof generateUniqueNeoKhataUserId === 'function'
+                    ? generateUniqueNeoKhataUserId()
+                    : `NEOKHATA${String(Math.floor(Math.random() * 100000)).padStart(5, '0')}`;
+                updateFields.neoUserId = resolvedNeoId;
+                matched.neoUserId = resolvedNeoId;
+            }
             if (!String(matched.passwordHash).startsWith('sha256:') && typeof hashPasswordSha256 === 'function') {
                 updateFields.passwordHash = await hashPasswordSha256(password);
                 matched.passwordHash = updateFields.passwordHash;
             }
             if (rtdb) {
                 update(ref(rtdb, `neokhata_users/${resolvedUid}`), updateFields).catch(() => {});
+                set(ref(rtdb, `neokhata_id_index/${resolvedNeoId}`), sanitizeForRtdb({
+                    uid: resolvedUid,
+                    neoUserId: resolvedNeoId,
+                    phone: extractCleanPhoneSafe(matched.phone || cleanPh),
+                    email: (matched.email || '').trim().toLowerCase(),
+                    name: matched.name || 'User',
+                    updatedAt: nowIso
+                })).catch(() => {});
             }
             if (db) {
                 setDoc(doc(db, 'neokhata_users', resolvedUid), updateFields, { merge: true }).catch(() => {});
@@ -17250,7 +17485,7 @@ ${JSON.stringify(liveSnapshot)}`;
             // Sync registered record into local cache
             const regList = typeof getDeduplicatedAdminUsers === 'function' ? getDeduplicatedAdminUsers() : [];
             const rIdx = regList.findIndex(u => (u.uid || '') === resolvedUid || (matched.phone && extractCleanPhoneSafe(u.phone || '') === extractCleanPhoneSafe(matched.phone)));
-            const syncedUserRecord = { ...matched, ...updateFields, uid: resolvedUid };
+            const syncedUserRecord = { ...matched, ...updateFields, uid: resolvedUid, neoUserId: resolvedNeoId };
             if (rIdx >= 0) regList[rIdx] = syncedUserRecord;
             else regList.unshift(syncedUserRecord);
             localStorage.setItem('khataflow_registered_users', JSON.stringify(regList));
@@ -17258,6 +17493,7 @@ ${JSON.stringify(liveSnapshot)}`;
             return {
                 user: {
                     uid: resolvedUid,
+                    neoUserId: resolvedNeoId,
                     email: matched.email || '',
                     displayName: matched.name || 'User',
                     phone: extractCleanPhoneSafe(matched.phone || cleanPh)
@@ -17396,6 +17632,7 @@ ${JSON.stringify(liveSnapshot)}`;
                 });
                 try { localStorage.setItem('khataflow_registered_users', JSON.stringify(Array.from(dedupMap.values()))); } catch (e) {}
             }
+            if (typeof ensureAllUsersHaveUniqueNeoKhataIds === 'function') ensureAllUsersHaveUniqueNeoKhataIds();
             if (typeof renderAdminUsersList === 'function') renderAdminUsersList();
             if (typeof updateAdminDashboardMetrics === 'function') updateAdminDashboardMetrics();
         };
@@ -17516,7 +17753,16 @@ ${JSON.stringify(liveSnapshot)}`;
             const emailIndexKey = cleanEm ? `email_${cleanEm.replace(/[^a-z0-9]/g, '_')}` : '';
 
             // 1. Purge from local registered users & workspaces
-            const regList = (typeof getDeduplicatedAdminUsers === 'function' ? getDeduplicatedAdminUsers() : []).filter(u => {
+            const existingAllUsers = typeof getDeduplicatedAdminUsers === 'function' ? getDeduplicatedAdminUsers() : [];
+            const deletedNeoIds = new Set();
+            existingAllUsers.forEach(u => {
+                const uPh = extractCleanPhoneSafe(u.phone || '');
+                const uEm = (u.email || '').trim().toLowerCase();
+                if ((cleanPh && uPh === cleanPh) || (cleanEm && uEm === cleanEm) || (uid && u.uid === uid)) {
+                    if (u.neoUserId) deletedNeoIds.add(String(u.neoUserId).toUpperCase());
+                }
+            });
+            const regList = existingAllUsers.filter(u => {
                 const uPh = extractCleanPhoneSafe(u.phone || '');
                 const uEm = (u.email || '').trim().toLowerCase();
                 if (cleanPh && uPh === cleanPh) return false;
@@ -17527,14 +17773,24 @@ ${JSON.stringify(liveSnapshot)}`;
             localStorage.setItem('khataflow_registered_users', JSON.stringify(regList));
 
             const allWs = JSON.parse(localStorage.getItem('khataflow_admin_all_workspaces') || '{}');
-            [wsKey, uid, cleanEm].filter(Boolean).forEach(k => { delete allWs[k]; });
+            [wsKey, uid, cleanEm].filter(Boolean).forEach(k => {
+                if (allWs[k]?.neoUserId) deletedNeoIds.add(String(allWs[k].neoUserId).toUpperCase());
+                if (allWs[k]?.userProfile?.neoUserId) deletedNeoIds.add(String(allWs[k].userProfile.neoUserId).toUpperCase());
+                delete allWs[k];
+            });
             localStorage.setItem('khataflow_admin_all_workspaces', JSON.stringify(allWs));
 
             if (cleanPh) localStorage.removeItem(`neokhata_login_lock_phone_${cleanPh}`);
             if (cleanEm) localStorage.removeItem(`neokhata_login_lock_${cleanEm}`);
 
-            // 2. Purge user status, subscription overrides, and affiliate references from adminConfig
+            // 2. Purge user status, subscription overrides, ID index, and affiliate references from adminConfig
             if (typeof adminConfig === 'object' && adminConfig) {
+                if (adminConfig.neoUserIdIndex && typeof adminConfig.neoUserIdIndex === 'object') {
+                    deletedNeoIds.forEach(nid => delete adminConfig.neoUserIdIndex[nid]);
+                    Object.entries(adminConfig.neoUserIdIndex).forEach(([nid, mappedKey]) => {
+                        if (mappedKey === wsKey || mappedKey === uid) delete adminConfig.neoUserIdIndex[nid];
+                    });
+                }
                 if (adminConfig.userAccountStatuses) {
                     [wsKey, uid].filter(Boolean).forEach(k => delete adminConfig.userAccountStatuses[k]);
                 }
@@ -17552,12 +17808,15 @@ ${JSON.stringify(liveSnapshot)}`;
                 localStorage.setItem('khataflow_admin_config', JSON.stringify(adminConfig));
             }
 
-            // 3. Permanently remove user profile, email lookup index & workspace from Firebase RTDB & Firestore
+            // 3. Permanently remove user profile, email lookup index, unique ID index & workspace from Firebase RTDB & Firestore
             const keysToPurge = Array.from(new Set([wsKey, uid].filter(Boolean)));
             if (rtdb) {
                 for (const k of keysToPurge) {
                     try { await remove(ref(rtdb, `neokhata_users/${k}`)); } catch (e) {}
                     try { await remove(ref(rtdb, `neokhata_workspaces/${k}`)); } catch (e) {}
+                }
+                for (const nid of deletedNeoIds) {
+                    try { await remove(ref(rtdb, `neokhata_id_index/${nid}`)); } catch (e) {}
                 }
                 if (emailIndexKey) {
                     try { await remove(ref(rtdb, `neokhata_email_index/${emailIndexKey}`)); } catch (e) {}
@@ -17567,6 +17826,37 @@ ${JSON.stringify(liveSnapshot)}`;
                 for (const k of keysToPurge) {
                     try { await deleteDoc(doc(db, 'neokhata_users', k)); } catch (e) {}
                     try { await deleteDoc(doc(db, 'neokhata_workspaces', k)); } catch (e) {}
+                }
+            }
+        };
+
+        window.syncNewlyAllottedNeoIdsToCloud = async function(allottedList = [], allWs = {}) {
+            await ensureCloudReady();
+            const nowIso = new Date().toISOString();
+            for (const item of allottedList) {
+                const u = item?.user;
+                const uKey = item?.uKey;
+                if (!u || !uKey || !u.neoUserId) continue;
+                if (rtdb) {
+                    try {
+                        await update(ref(rtdb, `neokhata_users/${uKey}`), { neoUserId: u.neoUserId });
+                        await set(ref(rtdb, `neokhata_id_index/${u.neoUserId}`), sanitizeForRtdb({
+                            uid: uKey,
+                            neoUserId: u.neoUserId,
+                            phone: extractCleanPhoneSafe(u.phone || ''),
+                            email: (u.email || '').trim().toLowerCase(),
+                            name: u.name || 'User',
+                            updatedAt: nowIso
+                        }));
+                        if (allWs[uKey]) {
+                            await update(ref(rtdb, `neokhata_workspaces/${uKey}`), { neoUserId: u.neoUserId });
+                        }
+                    } catch (e) {}
+                }
+                if (db) {
+                    try {
+                        await setDoc(doc(db, 'neokhata_users', uKey), { neoUserId: u.neoUserId }, { merge: true });
+                    } catch (e) {}
                 }
             }
         };
