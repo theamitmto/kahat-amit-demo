@@ -724,6 +724,17 @@
                             <i class="fa-solid fa-chevron-right text-[10px] text-neutral-300 group-hover:text-blue-600 transition flex-shrink-0"></i>
                         </button>
 
+                        <button type="button" onclick="toggleSideMenu(false); openNeoKhataWhatsAppSupport('support')" class="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/70 dark:hover:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 transition group">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center flex-shrink-0"><i class="fa-brands fa-whatsapp text-sm"></i></span>
+                                <div class="text-left min-w-0">
+                                    <div class="font-black truncate">Support &amp; Help (WhatsApp)</div>
+                                    <div class="text-[10px] font-medium text-emerald-600/80 dark:text-emerald-400/80 truncate">Instant help with your NEOKHATA ID</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase flex-shrink-0">Chat</span>
+                        </button>
+
                         <button type="button" onclick="toggleSideMenu(false); openDeleteSelfAccountModal()" class="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50/70 dark:hover:bg-rose-950/40 text-xs font-bold text-rose-600 transition group">
                             <div class="flex items-center gap-3 min-w-0">
                                 <span class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user-xmark text-xs"></i></span>
@@ -2573,65 +2584,52 @@
                             </div>
                         </div>
 
-                        <!-- Filter Controls: Customer, Type, From Date, To Date -->
-                        <div class="p-3 rounded-2xl bg-neutral-100/85 dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-                            <div>
-                                <label class="block text-[9px] font-black uppercase tracking-wider text-neutral-500 mb-1">Customer</label>
-                                <select id="milk-khata-filter-customer" onchange="renderMilkKhataTable()" class="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 font-bold text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-primary-500">
-                                    <option value="">All Customers</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[9px] font-black uppercase tracking-wider text-neutral-500 mb-1">Payment Type</label>
-                                <select id="milk-khata-filter-type" onchange="renderMilkKhataTable()" class="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 font-bold text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-primary-500">
-                                    <option value="ALL">All Types</option>
-                                    <option value="Received">Received (जमा)</option>
-                                    <option value="Given">Paid (दिया)</option>
-                                    <option value="Advance">Advance</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[9px] font-black uppercase tracking-wider text-neutral-500 mb-1">From Date</label>
-                                <input type="date" id="milk-khata-filter-from" onchange="renderMilkKhataTable()" class="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 font-bold text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-primary-500">
-                            </div>
-                            <div>
-                                <label class="block text-[9px] font-black uppercase tracking-wider text-neutral-500 mb-1">To Date</label>
-                                <input type="date" id="milk-khata-filter-to" onchange="renderMilkKhataTable()" class="w-full px-2.5 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 font-bold text-neutral-800 dark:text-neutral-100 focus:outline-none focus:border-primary-500">
-                            </div>
+                        <!-- Filter Controls -->
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                            <select id="milk-khata-filter-customer" onchange="renderMilkKhataTable()" class="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 border font-bold">
+                                <option value="">-- All Customers --</option>
+                            </select>
+                            <select id="milk-khata-filter-type" onchange="renderMilkKhataTable()" class="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 border font-bold">
+                                <option value="ALL">All Types</option>
+                                <option value="Received">Received (जमा)</option>
+                                <option value="Given">Given (दिया)</option>
+                                <option value="Advance">Advance</option>
+                            </select>
+                            <input type="date" id="milk-khata-filter-from" onchange="renderMilkKhataTable()" class="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 border font-bold">
+                            <input type="date" id="milk-khata-filter-to" onchange="renderMilkKhataTable()" class="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-900 border font-bold">
                         </div>
 
-                        <!-- Live Filtered Summary Strip -->
-                        <div class="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-primary-500/10 to-amber-500/10 border border-primary-500/20 text-xs">
+                        <!-- Live Summary Strip -->
+                        <div class="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
                             <div>
-                                <span class="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Received (जमा)</span>
-                                <strong id="milk-khata-summary-received" class="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-300 tabular-nums">₹0.00</strong>
+                                <span class="text-[9px] font-black uppercase text-neutral-500 block">Received (+)</span>
+                                <strong id="milk-khata-summary-received" class="text-sm font-black text-emerald-700 dark:text-emerald-300">₹0.00</strong>
                             </div>
-                            <div class="border-x border-neutral-200/80 dark:border-neutral-700/80 px-2.5">
-                                <span class="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">Paid / Advance</span>
-                                <strong id="milk-khata-summary-paid" class="text-sm sm:text-base font-black text-amber-700 dark:text-amber-300 tabular-nums">₹0.00</strong>
+                            <div class="border-x border-neutral-200 dark:border-neutral-700 px-2">
+                                <span class="text-[9px] font-black uppercase text-neutral-500 block">Paid / Adv (-)</span>
+                                <strong id="milk-khata-summary-paid" class="text-sm font-black text-amber-700 dark:text-amber-300">₹0.00</strong>
                             </div>
                             <div class="text-right">
-                                <span class="text-[9px] font-black uppercase tracking-wider text-primary-600 dark:text-primary-400 block">Total Settled</span>
-                                <strong id="milk-khata-summary-total" class="text-sm sm:text-base font-black text-primary-700 dark:text-primary-300 tabular-nums">₹0.00</strong>
+                                <span class="text-[9px] font-black uppercase text-neutral-500 block">Total Settled</span>
+                                <strong id="milk-khata-summary-total" class="text-sm font-black text-primary-700 dark:text-primary-300">₹0.00</strong>
                             </div>
                         </div>
 
-                        <!-- Mobile Cards & Desktop Table -->
                         <div class="block sm:hidden space-y-2.5" id="milk-khata-mobile-list"></div>
                         <div class="hidden sm:block overflow-x-auto rounded-2xl border border-neutral-200/80 dark:border-neutral-800">
                             <table class="w-full text-left border-collapse">
                                 <thead>
-                                    <tr class="bg-neutral-100/90 dark:bg-neutral-900/90 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-black text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                                        <th class="py-3 px-3.5"># Sl No.</th>
-                                        <th class="py-3 px-3.5">Date</th>
-                                        <th class="py-3 px-3.5">Customer</th>
-                                        <th class="py-3 px-3.5">Type</th>
-                                        <th class="py-3 px-3.5">Amount</th>
-                                        <th class="py-3 px-3.5">Note</th>
-                                        <th class="py-3 px-3.5 text-right">Actions</th>
+                                    <tr class="bg-neutral-100/90 dark:bg-neutral-900/90 border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-black text-neutral-500 uppercase">
+                                        <th class="py-2.5 px-3.5"># Sl</th>
+                                        <th class="py-2.5 px-3.5">Date</th>
+                                        <th class="py-2.5 px-3.5">Customer</th>
+                                        <th class="py-2.5 px-3.5">Type</th>
+                                        <th class="py-2.5 px-3.5">Amount</th>
+                                        <th class="py-2.5 px-3.5">Note</th>
+                                        <th class="py-2.5 px-3.5 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody id="milk-khata-tbody" class="text-xs divide-y divide-neutral-200/70 dark:divide-neutral-800 font-medium bg-white/70 dark:bg-neutral-950/40"></tbody>
+                                <tbody id="milk-khata-tbody" class="text-xs divide-y divide-neutral-200/70 dark:divide-neutral-800 font-medium"></tbody>
                             </table>
                         </div>
                     </div>
@@ -2639,34 +2637,31 @@
             </div>
 
             <!-- MILK SUB-TAB 4: CUSTOMERS -->
-            <div id="milk-tab-customers" class="hidden space-y-4">
+            <div id="milk-tab-customers" class="hidden space-y-5">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="glass-card p-5 rounded-3xl space-y-3.5">
-                        <div class="flex justify-between items-center pb-2 border-b border-neutral-200 dark:border-neutral-800">
-                            <h4 class="font-black text-neutral-900 dark:text-white text-sm">Add / Edit Milk Customer</h4>
-                            <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 font-bold">Directory</span>
-                        </div>
-                        <form onsubmit="handleMilkCustomerSubmit(event)" class="space-y-3 text-xs">
-                            <input type="hidden" id="milk-cust-id">
+                    <div class="glass-card p-5 rounded-3xl space-y-3.5 text-xs">
+                        <h4 class="font-black text-neutral-900 dark:text-white text-sm pb-2 border-b border-neutral-200 dark:border-neutral-800">Add / Edit Milk Customer</h4>
+                        <form onsubmit="handleMilkCustomerSubmit(event)" class="space-y-3">
+                            <input type="hidden" id="milk-cust-id" value="">
                             <div>
-                                <label class="block font-bold text-neutral-600 dark:text-neutral-300 mb-1">Full Name *</label>
-                                <input type="text" id="milk-cust-name" placeholder="Rameshwar Yadav" required class="w-full p-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 font-semibold">
+                                <label class="block font-bold mb-1">Customer Name *</label>
+                                <input type="text" id="milk-cust-name" required placeholder="e.g. Suresh Yadav" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border font-bold">
                             </div>
                             <div>
-                                <label class="block font-bold text-neutral-600 dark:text-neutral-300 mb-1">Mobile Number *</label>
-                                <input type="tel" id="milk-cust-phone" maxlength="10" oninput="this.value=extractCleanPhone(this.value)" placeholder="9876543210" required class="w-full p-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 font-bold">
+                                <label class="block font-bold mb-1">10-Digit Mobile</label>
+                                <input type="tel" id="milk-cust-phone" maxlength="10" oninput="this.value=extractCleanPhone(this.value)" placeholder="9876543210" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border font-mono font-bold">
                             </div>
                             <div>
-                                <label class="block font-bold text-neutral-600 dark:text-neutral-300 mb-1">Milk Type</label>
-                                <select id="milk-cust-milktype" class="w-full p-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 font-semibold">
-                                    <option value="Buffalo">Buffalo Milk</option>
-                                    <option value="Cow">Cow Milk</option>
-                                    <option value="Both">Both</option>
+                                <label class="block font-bold mb-1">Milk Type</label>
+                                <select id="milk-cust-milktype" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border font-bold">
+                                    <option value="Buffalo">Buffalo Milk (भैंस)</option>
+                                    <option value="Cow">Cow Milk (गाय)</option>
+                                    <option value="Both">Mixed / Both</option>
                                 </select>
                             </div>
                             <div class="flex gap-2 pt-1">
-                                <button type="submit" id="milk-cust-submit-btn" class="flex-1 py-3 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-black text-xs transition shadow-md">Save Customer</button>
-                                <button type="button" onclick="resetMilkCustomerForm()" id="milk-cust-cancel-btn" class="hidden px-4 py-3 rounded-2xl bg-neutral-200 dark:bg-neutral-800 text-xs font-bold">Cancel</button>
+                                <button type="button" id="milk-cust-cancel-btn" onclick="resetMilkCustomerForm()" class="hidden flex-1 py-2.5 rounded-xl bg-neutral-200 dark:bg-neutral-800 font-bold">Cancel</button>
+                                <button type="submit" class="flex-1 py-2.5 rounded-xl bg-primary-600 text-white font-black">Save Customer</button>
                             </div>
                         </form>
                     </div>
@@ -2963,10 +2958,14 @@
                     </div>
 
                     <!-- Merchant UPI & Free Tier Limits -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                         <div>
                             <label class="block text-[10px] font-black uppercase text-neutral-500 mb-1">Admin Receiver UPI ID (Hidden from Users) *</label>
                             <input type="text" id="adm-sub-upi-id" value="6393954985@upi" placeholder="6393954985@upi" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border font-mono font-black text-emerald-700 dark:text-emerald-300">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-neutral-500 mb-1">Support &amp; UTR WhatsApp No. *</label>
+                            <input type="tel" id="adm-sub-support-whatsapp" value="916393954985" placeholder="916393954985" class="w-full p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border font-mono font-black text-emerald-700 dark:text-emerald-300">
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase text-neutral-500 mb-1">Merchant Display Label</label>
@@ -4699,122 +4698,178 @@
             <!-- ================= STEP 2: DEDICATED PROFESSIONAL UPI CHECKOUT PAGE ================= -->
             <div id="sub-step-2-checkout-page" class="hidden space-y-4 animate-fade-in">
                 <!-- Back Navigation & Selected Plan Summary Strip -->
-                <div class="flex items-center justify-between gap-2 p-3 rounded-2xl bg-primary-50/80 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800/70">
-                    <button type="button" onclick="goToSubscriptionStep(1)" class="px-3 py-1.5 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 font-extrabold text-[11px] flex items-center gap-1.5 shadow-2xs transition">
+                <div class="flex flex-wrap items-center justify-between gap-2.5 p-3.5 rounded-2xl bg-primary-50/90 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800/70">
+                    <button type="button" onclick="goToSubscriptionStep(1)" class="px-3.5 py-2 rounded-xl bg-white dark:bg-neutral-900 hover:bg-neutral-100 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 font-extrabold text-[11px] flex items-center gap-1.5 shadow-2xs transition active:scale-95">
                         <i class="fa-solid fa-arrow-left text-[10px]"></i> Change Plan
                     </button>
-                    <div class="text-right">
-                        <div class="text-[10px] font-bold uppercase text-neutral-400">Selected Package</div>
-                        <div class="text-xs sm:text-sm font-black text-primary-700 dark:text-primary-300" id="sub-checkout-plan-summary">Monthly Pro (30 Days) • ₹199</div>
+                    <div class="text-left sm:text-right min-w-0">
+                        <div class="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">Selected Package</div>
+                        <div class="text-xs sm:text-sm font-black text-primary-700 dark:text-primary-300 truncate" id="sub-checkout-plan-summary">Monthly Pro (30 Days) • ₹199</div>
                     </div>
                 </div>
 
                 <!-- Auto-Filled User Account Details Card -->
-                <div class="p-3.5 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                <div class="p-3.5 sm:p-4 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-1.5">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center gap-1.5">
                             <i class="fa-solid fa-user-check text-emerald-600"></i> Subscriber Details (Auto-Filled)
                         </span>
-                        <span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase">Verified Account</span>
+                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase">Verified Account</span>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                        <div class="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800">
+                        <div class="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 min-w-0">
                             <span class="text-[9px] font-bold text-neutral-400 block">Account Holder</span>
-                            <strong id="sub-checkout-user-name" class="font-black text-neutral-900 dark:text-white truncate block">User</strong>
+                            <strong id="sub-checkout-user-name" class="font-black text-neutral-900 dark:text-white truncate block mt-0.5">User</strong>
                         </div>
-                        <div class="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800">
-                            <span class="text-[9px] font-bold text-neutral-400 block">Registered Mobile</span>
-                            <strong id="sub-checkout-user-phone" class="font-mono font-black text-neutral-900 dark:text-white truncate block">+91 —</strong>
+                        <div class="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 min-w-0">
+                            <span class="text-[9px] font-bold text-neutral-400 block">Mobile Number</span>
+                            <strong id="sub-checkout-user-phone" class="font-mono font-black text-neutral-900 dark:text-white truncate block mt-0.5">+91 9876543210</strong>
                         </div>
-                        <div class="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800">
-                            <span class="text-[9px] font-bold text-neutral-400 block">Email / Workspace ID</span>
-                            <strong id="sub-checkout-user-email" class="font-mono font-bold text-neutral-700 dark:text-neutral-300 truncate block">—</strong>
+                        <div class="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 min-w-0">
+                            <span class="text-[9px] font-bold text-neutral-400 block">Email / User Key</span>
+                            <strong id="sub-checkout-user-email" class="font-mono font-bold text-neutral-700 dark:text-neutral-200 truncate block mt-0.5">user@neokhata.app</strong>
                         </div>
                     </div>
                 </div>
 
-                <!-- Professional Promo Coupon & Live Price Breakdown Card -->
-                <div class="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-emerald-500/10 border border-purple-300/60 dark:border-purple-800/60 space-y-2.5">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
-                            <i class="fa-solid fa-ticket"></i> Promo Code &amp; Order Summary
-                        </span>
-                        <span id="sub-coupon-applied-badge" class="hidden px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase">Coupon Applied</span>
-                    </div>
-                    <div class="flex items-center gap-2">
+                <!-- Promo Coupon & Price Breakdown Card -->
+                <div class="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/90 dark:border-neutral-800 space-y-3 shadow-2xs">
+                    <div class="flex flex-col sm:flex-row gap-2">
                         <div class="relative flex-1">
-                            <i class="fa-solid fa-tag text-purple-500 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
-                            <input type="text" id="sub-checkout-coupon-input" oninput="this.value=this.value.toUpperCase()" placeholder="Enter Promo Code (e.g. NEOPRO50)" class="w-full pl-8 pr-3 py-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-purple-300/80 dark:border-neutral-700 font-mono font-black uppercase text-xs focus:outline-none focus:border-purple-600">
+                            <i class="fa-solid fa-ticket text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 text-xs"></i>
+                            <input type="text" id="sub-checkout-coupon-input" placeholder="Have a Promo Coupon? (e.g. NEOPRO50)" class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 font-mono text-xs font-black uppercase focus:outline-none focus:border-purple-500">
                         </div>
-                        <button type="button" onclick="applySubscriptionCheckoutCoupon()" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-sm transition active:scale-95">Apply</button>
+                        <button type="button" onclick="applySubscriptionCheckoutCoupon()" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs whitespace-nowrap shadow-xs transition active:scale-95">
+                            Apply Coupon
+                        </button>
                     </div>
-                    <div id="sub-coupon-status-text" class="hidden text-[10px] font-bold"></div>
-                    <div class="pt-2 border-t border-neutral-200/70 dark:border-neutral-800 flex items-center justify-between text-xs">
-                        <div class="space-y-0.5 text-[11px]">
-                            <div class="text-neutral-500">Plan Price: <strong id="sub-bill-base-amt" class="text-neutral-800 dark:text-neutral-200">₹199</strong></div>
-                            <div id="sub-bill-discount-row" class="hidden text-emerald-600 font-bold">Promo Discount: <strong id="sub-bill-discount-amt">-₹0</strong></div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span id="sub-coupon-status-text" class="text-[10px] font-bold text-neutral-400">Enter promo code for instant discount</span>
+                        <span id="sub-coupon-applied-badge" class="hidden px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase">Discount Applied</span>
+                    </div>
+                    <div class="pt-2.5 border-t border-neutral-200/80 dark:border-neutral-800 space-y-1.5 text-[11px]">
+                        <div class="flex items-center justify-between text-neutral-500 font-bold">
+                            <span>Plan Base Price</span>
+                            <span id="sub-bill-base-amt" class="font-mono">₹199</span>
                         </div>
-                        <div class="text-right">
-                            <span class="text-[9px] font-black uppercase text-neutral-400 block">Net Payable</span>
-                            <span id="sub-bill-net-amt" class="text-xl font-black text-primary-600 dark:text-primary-400 tabular-nums">₹199</span>
+                        <div id="sub-bill-discount-row" class="hidden flex items-center justify-between text-emerald-600 font-extrabold">
+                            <span>Promo Discount</span>
+                            <span id="sub-bill-discount-amt" class="font-mono">-₹0</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs sm:text-sm font-black text-neutral-900 dark:text-white pt-1 border-t border-dashed border-neutral-200 dark:border-neutral-800">
+                            <span>Net Payable via UPI</span>
+                            <span id="sub-bill-net-amt" class="text-base font-black text-primary-600 dark:text-primary-400 font-mono">₹199</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- High-Craft QR Code, Download QR & Multiple UPI App Buttons -->
-                <div id="sub-modal-upi-checkout-box" class="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 text-white border border-primary-500/35 space-y-4 shadow-xl">
-                    <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
-                        <div>
-                            <span class="text-[10px] font-black uppercase text-sky-300 tracking-wider block">Scan QR or Choose UPI App</span>
-                            <div class="text-xs font-bold text-slate-300 mt-0.5">Instant Pre-Filled Amount • Zero Extra Fee</div>
+                <!-- High-Craft QR Code, Download QR, Multiple UPI App Buttons & 12-Digit UTR Card -->
+                <div id="sub-modal-upi-checkout-box" class="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/95 text-neutral-900 dark:text-white border border-neutral-200/90 dark:border-primary-500/35 space-y-4 shadow-xl transition-colors">
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-neutral-200/80 dark:border-white/10">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-9 h-9 rounded-xl bg-primary-600/10 dark:bg-primary-500/20 text-primary-600 dark:text-sky-300 flex items-center justify-center text-sm font-black flex-shrink-0">
+                                <i class="fa-solid fa-qrcode"></i>
+                            </span>
+                            <div class="min-w-0">
+                                <span class="text-xs sm:text-sm font-black tracking-tight text-neutral-900 dark:text-white block">Step 1: Scan QR or Pay via UPI App</span>
+                                <span class="text-[10.5px] font-medium text-neutral-500 dark:text-slate-400 block">100% Free Direct UPI • Zero Gateway Charges</span>
+                            </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold text-[10px] flex items-center gap-1">
+                        <span class="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] flex items-center gap-1 flex-shrink-0">
                             <i class="fa-solid fa-shield-check"></i> <span id="sub-checkout-upi-display">Verified Merchant</span>
                         </span>
                     </div>
 
-                    <!-- QR Code + Download QR Button -->
-                    <div class="flex flex-col sm:flex-row items-center gap-4">
-                        <div class="flex flex-col items-center gap-2 flex-shrink-0">
-                            <div class="p-3 bg-white rounded-2xl shadow-lg border-2 border-emerald-400/40">
+                    <!-- Balanced QR Code + Clean Non-Cramped UPI App Buttons -->
+                    <div class="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5">
+                        <div class="w-full sm:w-44 flex flex-col items-center justify-between gap-2.5 p-3 rounded-2xl bg-neutral-50 dark:bg-slate-950/70 border border-neutral-200/80 dark:border-white/10 flex-shrink-0">
+                            <div class="p-2.5 bg-white rounded-2xl shadow-sm border border-primary-500/25">
                                 <img id="sub-checkout-qr-img" crossorigin="anonymous" src="" alt="Secure Payment QR" class="w-36 h-36 block rounded-lg">
                             </div>
-                            <button type="button" onclick="downloadSubscriptionQrCode()" class="w-full py-1.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white font-extrabold text-[10px] flex items-center justify-center gap-1.5 transition active:scale-95">
-                                <i class="fa-solid fa-download text-emerald-300"></i> Download QR (PNG)
+                            <button type="button" onclick="downloadSubscriptionQrCode()" class="w-full py-2 px-3 rounded-xl bg-white hover:bg-neutral-100 dark:bg-white/10 dark:hover:bg-white/20 border border-neutral-300 dark:border-white/15 text-neutral-800 dark:text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 transition active:scale-95">
+                                <i class="fa-solid fa-download text-primary-600 dark:text-emerald-300"></i> Download QR
                             </button>
                         </div>
 
-                        <!-- Multiple UPI App Launch Buttons -->
-                        <div class="flex-1 w-full space-y-2 text-left">
-                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-300 block">Pay Directly via UPI App (<span id="sub-checkout-pay-btn-amt">₹199</span>):</span>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" onclick="launchSubscriptionUpiApp('gpay')" class="py-2.5 px-3 rounded-xl bg-white hover:bg-sky-50 text-slate-900 font-black text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95">
-                                    <i class="fa-brands fa-google-pay text-base text-blue-600"></i> Google Pay
-                                </button>
-                                <button type="button" onclick="launchSubscriptionUpiApp('phonepe')" class="py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95">
-                                    <i class="fa-solid fa-mobile-screen-button"></i> PhonePe
-                                </button>
-                                <button type="button" onclick="launchSubscriptionUpiApp('paytm')" class="py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-black text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95">
-                                    <i class="fa-solid fa-wallet"></i> Paytm UPI
-                                </button>
-                                <button type="button" onclick="launchSubscriptionUpiApp('any')" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95">
-                                    <i class="fa-solid fa-building-columns"></i> BHIM / Any UPI
-                                </button>
+                        <div class="flex-1 w-full flex flex-col justify-between gap-3 text-left min-w-0">
+                            <div class="space-y-2.5">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-[10.5px] font-black uppercase tracking-wider text-neutral-600 dark:text-slate-300">Pay Directly (<span id="sub-checkout-pay-btn-amt" class="text-primary-600 dark:text-emerald-300 font-mono">₹199</span>):</span>
+                                    <span class="text-[9.5px] font-bold text-neutral-400">1-Tap UPI App</span>
+                                </div>
+                                <div class="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2.5">
+                                    <button type="button" onclick="launchSubscriptionUpiApp('gpay')" class="w-full min-h-[42px] py-2.5 px-3 rounded-xl bg-neutral-100 hover:bg-blue-50 dark:bg-white dark:hover:bg-sky-50 text-slate-900 border border-neutral-200 dark:border-transparent font-black text-xs flex items-center justify-center gap-2 shadow-2xs transition active:scale-95">
+                                        <i class="fa-brands fa-google-pay text-lg text-blue-600 flex-shrink-0"></i>
+                                        <span class="truncate">Google Pay</span>
+                                    </button>
+                                    <button type="button" onclick="launchSubscriptionUpiApp('phonepe')" class="w-full min-h-[42px] py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95">
+                                        <i class="fa-solid fa-mobile-screen-button text-sm flex-shrink-0"></i>
+                                        <span class="truncate">PhonePe</span>
+                                    </button>
+                                    <button type="button" onclick="launchSubscriptionUpiApp('paytm')" class="w-full min-h-[42px] py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95">
+                                        <i class="fa-solid fa-wallet text-sm flex-shrink-0"></i>
+                                        <span class="truncate">Paytm UPI</span>
+                                    </button>
+                                    <button type="button" onclick="launchSubscriptionUpiApp('any')" class="w-full min-h-[42px] py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95">
+                                        <i class="fa-solid fa-building-columns text-sm flex-shrink-0"></i>
+                                        <span class="truncate">BHIM / Any UPI</span>
+                                    </button>
+                                </div>
                             </div>
-                            <p class="text-[10px] text-slate-400 leading-relaxed pt-0.5">
-                                After completing payment in any UPI app or scanning the QR, enter your 12-digit UTR below for instant Admin verification.
-                            </p>
+
+                            <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[10.5px] text-neutral-700 dark:text-slate-300 leading-relaxed">
+                                <i class="fa-solid fa-circle-info text-amber-500 mr-1"></i>
+                                After paying via UPI, copy your <strong>12-digit UTR / UPI Reference Number</strong> from your receipt and submit below for Admin verification.
+                            </div>
                         </div>
                     </div>
 
-                    <!-- UTR Verification Submission Form -->
-                    <form onsubmit="submitSubscriptionUtrPayment(event)" class="pt-3 border-t border-white/15 space-y-2 text-left">
-                        <label class="block text-[10px] font-black uppercase text-amber-300">Enter 12-Digit UTR / Transaction Reference No. *</label>
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <input type="text" id="sub-checkout-utr-input" required minlength="12" maxlength="22" oninput="this.value=this.value.replace(/[^a-zA-Z0-9]/g,'').toUpperCase()" placeholder="e.g. 432198765432" class="flex-1 p-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-400 font-mono font-bold focus:outline-none focus:border-emerald-400">
-                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black whitespace-nowrap shadow-md">Submit UTR for Approval</button>
+                    <!-- Step 2: 12-Digit UTR Verification & Post-Submit WhatsApp Confirmation -->
+                    <form onsubmit="submitSubscriptionUtrPayment(event)" class="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-slate-950/80 border border-neutral-200/90 dark:border-white/10 space-y-3 text-left">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label for="sub-checkout-utr-input" class="text-[10.5px] font-black uppercase tracking-wider text-neutral-800 dark:text-amber-300 flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] inline-flex items-center justify-center font-black flex-shrink-0">2</span>
+                                <span>Enter 12-Digit UTR Number *</span>
+                            </label>
+                            <span id="sub-utr-digit-counter" class="px-2.5 py-0.5 rounded-full bg-neutral-200/80 dark:bg-white/10 font-mono text-[10px] font-black text-neutral-600 dark:text-slate-300">0 / 12 Digits</span>
                         </div>
-                        <div id="sub-verify-feedback-box" class="hidden p-2.5 rounded-xl text-[11px] font-bold"></div>
+
+                        <div class="flex flex-col sm:flex-row gap-2.5">
+                            <div class="relative flex-1 min-w-0">
+                                <i class="fa-solid fa-hashtag text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2 text-xs"></i>
+                                <input type="text" id="sub-checkout-utr-input" required minlength="12" maxlength="12" inputmode="numeric" pattern="\d{12}" oninput="handleSubscriptionUtrInput(this.value)" placeholder="12-digit UTR (e.g. 432198765432)" class="w-full min-h-[44px] pl-9 pr-3 py-2.5 rounded-xl bg-white dark:bg-white/10 border border-neutral-300 dark:border-white/20 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-slate-400 font-mono text-sm font-black tracking-[0.14em] focus:outline-none focus:border-primary-600 dark:focus:border-emerald-400 transition">
+                            </div>
+                            <button type="submit" id="sub-submit-utr-btn" class="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 via-indigo-600 to-emerald-600 hover:from-primary-700 hover:to-emerald-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-primary-600/20 transition active:scale-95">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Submit UTR for Approval</span>
+                            </button>
+                        </div>
+
+                        <!-- Validation / Status Feedback Box -->
+                        <div id="sub-verify-feedback-box" class="hidden p-3 rounded-xl text-[11px] font-bold leading-relaxed"></div>
+
+                        <!-- Post-Submit WhatsApp Action Card (Strictly Hidden Until Valid 12-Digit UTR is Submitted) -->
+                        <div id="sub-post-utr-whatsapp-card" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border border-emerald-500/40 space-y-2.5 animate-fade-in">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-start gap-2.5 min-w-0">
+                                    <span class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm flex-shrink-0 shadow-xs mt-0.5">
+                                        <i class="fa-brands fa-whatsapp"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <div class="text-xs font-black text-emerald-800 dark:text-emerald-200 leading-snug">UTR Submitted (Pending Manual Admin Approval)</div>
+                                        <p id="sub-post-utr-whatsapp-summary" class="text-[10.5px] font-semibold text-neutral-600 dark:text-slate-300 mt-0.5 break-words">
+                                            Redirecting to WhatsApp with your Name, Unique ID, Plan, Amount &amp; 12-Digit UTR...
+                                        </p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase flex-shrink-0">Pending</span>
+                            </div>
+                            <a id="sub-post-utr-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" onclick="event.preventDefault(); openNeoKhataWhatsAppSupport('utr');" class="w-full min-h-[42px] py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition active:scale-95">
+                                <i class="fa-brands fa-whatsapp text-base"></i>
+                                <span>Send Details on WhatsApp</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-85"></i>
+                            </a>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -14975,6 +15030,7 @@ ${JSON.stringify(liveSnapshot)}`;
             if (!adminConfig.subscriptionConfig || typeof adminConfig.subscriptionConfig !== 'object') {
                 adminConfig.subscriptionConfig = {
                     upiId: '6393954985@upi',
+                    supportWhatsappNumber: '916393954985',
                     merchantLabel: 'NeoKhata Verified Merchant Gateway',
                     freeTxLimit: 25,
                     freeCustLimit: 5,
@@ -15004,6 +15060,7 @@ ${JSON.stringify(liveSnapshot)}`;
             }
             const sc = adminConfig.subscriptionConfig;
             if (!sc.upiId) sc.upiId = '6393954985@upi';
+            if (!sc.supportWhatsappNumber) sc.supportWhatsappNumber = '916393954985';
             if (!sc.merchantLabel) sc.merchantLabel = 'NeoKhata Verified Merchant Gateway';
             if (!Array.isArray(sc.coupons)) sc.coupons = [{ code: 'NEOPRO50', discountPct: 50, isUnlimited: true, maxUsageLimit: 0, validFrom: '', validUntil: '', active: true, usedCount: 0, usedByUsers: [] }];
             sc.coupons = sc.coupons.map(c => {
@@ -15317,152 +15374,25 @@ ${JSON.stringify(liveSnapshot)}`;
 
             populateSubscriberAutoDetails();
             refreshSubscriptionCheckoutQr();
+            const utrInp = document.getElementById('sub-checkout-utr-input');
+            if (utrInp && !utrInp.value) handleSubscriptionUtrInput('');
+            document.getElementById('sub-post-utr-whatsapp-card')?.classList.add('hidden');
+            document.getElementById('sub-verify-feedback-box')?.classList.add('hidden');
             goToSubscriptionStep(startStep);
             document.getElementById('subscription-upgrade-modal')?.classList.replace('hidden', 'flex');
         }
 
-        function closeSubscriptionUpgradeModal() {
-            document.getElementById('subscription-upgrade-modal')?.classList.replace('flex', 'hidden');
-        }
-
-        function selectSubscriptionCheckoutPlan(planId, advanceToCheckout = true) {
-            const sc = ensureSubscriptionConfig();
-            const userKey = getCurrentUserSubKey();
-            const ov = sc.userOverrides[userKey] || {};
-            const pl = (sc.plans || []).find(p => p.id === planId);
-            if (!pl) return;
-            selectedCheckoutPlanId = pl.id;
-            selectedCheckoutPlanName = pl.name;
-            selectedCheckoutDays = Number(pl.days) || 30;
-            selectedCheckoutAmount = (ov.customPrice !== undefined && ov.customPrice !== null && ov.customPrice !== '' && (!ov.assignedPlanId || ov.assignedPlanId === pl.id))
-                ? Number(ov.customPrice)
-                : Number(pl.price);
-            openSubscriptionUpgradeModal('', advanceToCheckout ? 2 : 1);
-        }
-
-        function applySubscriptionCheckoutCoupon() {
-            const sc = ensureSubscriptionConfig();
-            const code = (document.getElementById('sub-checkout-coupon-input')?.value || '').trim().toUpperCase();
-            const statusEl = document.getElementById('sub-coupon-status-text');
-            const badgeEl = document.getElementById('sub-coupon-applied-badge');
-            if (!code) {
-                appliedCheckoutDiscountPct = 0;
-                appliedCheckoutCouponCode = '';
-                statusEl?.classList.add('hidden');
-                badgeEl?.classList.add('hidden');
-                refreshSubscriptionCheckoutQr();
-                return;
-            }
-            const found = (sc.coupons || []).find(c => (c.code || '').toUpperCase() === code);
-            const validation = validatePromoCouponForUser(found, getCurrentUserSubKey());
-            if (!validation.valid) {
-                appliedCheckoutDiscountPct = 0;
-                appliedCheckoutCouponCode = '';
-                badgeEl?.classList.add('hidden');
-                if (statusEl) {
-                    statusEl.className = 'text-[10px] font-bold text-rose-600';
-                    statusEl.textContent = `❌ ${validation.message}`;
-                }
-                showToast(validation.message, 'error');
-            } else {
-                appliedCheckoutDiscountPct = Math.min(100, Math.max(1, Number(found.discountPct) || 0));
-                appliedCheckoutCouponCode = code;
-                if (badgeEl) {
-                    badgeEl.classList.remove('hidden');
-                    badgeEl.textContent = `${code} • ${appliedCheckoutDiscountPct}% OFF`;
-                }
-                if (statusEl) {
-                    statusEl.className = 'text-[10px] font-bold text-emerald-600';
-                    statusEl.textContent = `✅ Promo code "${code}" applied! You saved ${appliedCheckoutDiscountPct}% on this plan.`;
-                }
-                showToast(`Coupon ${code} applied (${appliedCheckoutDiscountPct}% OFF)!`);
-            }
-            refreshSubscriptionCheckoutQr();
-        }
-
-        function getTodayLocalIsoDate() {
-            const d = new Date();
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        }
-
-        function getPromoCouponLifecycleStatus(coupon) {
-            if (!coupon) return { state: 'invalid', label: 'Invalid', badgeClass: 'bg-rose-500/15 text-rose-600' };
-            if (coupon.active === false) {
-                return { state: 'inactive', label: 'Inactive', badgeClass: 'bg-neutral-500/15 text-neutral-600 dark:text-neutral-300' };
-            }
-            const todayStr = getTodayLocalIsoDate();
-            if (coupon.validFrom && todayStr < coupon.validFrom) {
-                return { state: 'scheduled', label: 'Scheduled / Upcoming', badgeClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300' };
-            }
-            if (coupon.validUntil && todayStr > coupon.validUntil) {
-                return { state: 'expired', label: 'Expired', badgeClass: 'bg-rose-500/15 text-rose-600' };
-            }
-            const used = Number(coupon.usedCount) || 0;
-            const maxLim = Number(coupon.maxUsageLimit) || 0;
-            if (!coupon.isUnlimited && maxLim > 0 && used >= maxLim) {
-                return { state: 'limit_reached', label: 'Limit Reached', badgeClass: 'bg-amber-500/20 text-amber-700 dark:text-amber-300' };
-            }
-            return { state: 'active', label: 'Active', badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' };
-        }
-
-        function validatePromoCouponForUser(coupon, userKey) {
-            if (!coupon) {
-                return { valid: false, message: 'यह प्रोमो कूपन कोड अमान्य (Invalid) है।' };
-            }
-            if (coupon.active === false) {
-                return { valid: false, message: 'यह कूपन वर्तमान में निष्क्रिय (Inactive) है।' };
-            }
-            const todayStr = getTodayLocalIsoDate();
-            if (coupon.validFrom && todayStr < coupon.validFrom) {
-                return { valid: false, message: `यह कूपन ${coupon.validFrom} से शुरू होगा।` };
-            }
-            if (coupon.validUntil && todayStr > coupon.validUntil) {
-                return { valid: false, message: 'इस कूपन की समय-सीमा समाप्त हो चुकी है।' };
-            }
-            const used = Number(coupon.usedCount) || 0;
-            const maxLim = Number(coupon.maxUsageLimit) || 0;
-            if (!coupon.isUnlimited && maxLim > 0 && used >= maxLim) {
-                return { valid: false, message: 'इस कूपन के उपयोग की अधिकतम सीमा पूरी हो चुकी है।' };
-            }
-            const logs = Array.isArray(coupon.usedByUsers) ? coupon.usedByUsers : [];
-            if (userKey && logs.some(entry => entry && entry.userKey === userKey)) {
-                return { valid: false, message: 'आप इस कूपन कोड का उपयोग पहले ही कर चुके हैं।' };
-            }
-            return { valid: true, message: 'Valid' };
-        }
-
-        function refreshSubscriptionCheckoutQr() {
-            const sc = ensureSubscriptionConfig();
-            const receiverUpi = sc.upiId || '6393954985@upi';
-            const merchantLabel = sc.merchantLabel || 'NeoKhata Verified Merchant Gateway';
-            const baseAmt = Math.max(1, Math.round(Number(selectedCheckoutAmount) || 199));
-            const discountAmt = Math.round((baseAmt * appliedCheckoutDiscountPct) / 100);
-            const finalAmt = Math.max(1, baseAmt - discountAmt);
-
-            if (document.getElementById('sub-checkout-plan-summary')) {
-                document.getElementById('sub-checkout-plan-summary').textContent = `${selectedCheckoutPlanName} (${selectedCheckoutDays} Days) • ₹${finalAmt}`;
-            }
-            if (document.getElementById('sub-checkout-upi-display')) {
-                document.getElementById('sub-checkout-upi-display').textContent = merchantLabel;
-            }
-            if (document.getElementById('sub-checkout-pay-btn-amt')) {
-                document.getElementById('sub-checkout-pay-btn-amt').textContent = `₹${finalAmt}`;
-            }
-            if (document.getElementById('sub-bill-base-amt')) document.getElementById('sub-bill-base-amt').textContent = `₹${baseAmt}`;
-            if (document.getElementById('sub-bill-net-amt')) document.getElementById('sub-bill-net-amt').textContent = `₹${finalAmt}`;
-            const discRow = document.getElementById('sub-bill-discount-row');
-            if (discRow) {
-                discRow.classList.toggle('hidden', discountAmt <= 0);
-                if (document.getElementById('sub-bill-discount-amt')) {
-                    document.getElementById('sub-bill-discount-amt').textContent = `-₹${discountAmt} (${appliedCheckoutCouponCode})`;
-                }
-            }
-
-            const upiUri = `upi://pay?pa=${encodeURIComponent(receiverUpi)}&pn=${encodeURIComponent('NeoKhata Pro')}&am=${finalAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent(selectedCheckoutPlanName)}`;
-            const qrImg = document.getElementById('sub-checkout-qr-img');
-            if (qrImg) {
-                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUri)}`;
+        function handleSubscriptionUtrInput(rawVal) {
+            const digits = String(rawVal || '').replace(/\D/g, '').slice(0, 12);
+            const inp = document.getElementById('sub-checkout-utr-input');
+            if (inp && inp.value !== digits) inp.value = digits;
+            const counterEl = document.getElementById('sub-utr-digit-counter');
+            if (counterEl) {
+                const isReady = digits.length === 12;
+                counterEl.textContent = isReady ? '✓ 12 / 12 Digits' : `${digits.length} / 12 Digits`;
+                counterEl.className = isReady
+                    ? 'px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-mono text-[10px] font-black'
+                    : 'px-2 py-0.5 rounded-full bg-neutral-200/80 dark:bg-white/10 font-mono text-[10px] font-black text-neutral-600 dark:text-slate-300';
             }
         }
 
@@ -15517,10 +15447,14 @@ ${JSON.stringify(liveSnapshot)}`;
 
         async function submitSubscriptionUtrPayment(e) {
             e.preventDefault();
-            const utr = (document.getElementById('sub-checkout-utr-input')?.value || '').trim().toUpperCase();
+            const utr = (document.getElementById('sub-checkout-utr-input')?.value || '').replace(/\D/g, '').slice(0, 12);
             const fb = document.getElementById('sub-verify-feedback-box');
+            const waCard = document.getElementById('sub-post-utr-whatsapp-card');
             const sc = ensureSubscriptionConfig();
             const userKey = getCurrentUserSubKey();
+
+            // Keep WhatsApp card strictly hidden until validation passes
+            waCard?.classList.add('hidden');
 
             // Re-validate applied promo coupon before submitting UTR
             let validCouponCode = '';
@@ -15543,17 +15477,18 @@ ${JSON.stringify(liveSnapshot)}`;
             const discountAmt = Math.round((baseAmt * validDiscountPct) / 100);
             const finalAmt = Math.max(1, baseAmt - discountAmt);
 
-            const isValidFormat = /^[A-Z0-9]{12,22}$/.test(utr) && !/^(\w)\1+$/.test(utr) && utr !== '123456789012';
+            const isValid12Digit = /^\d{12}$/.test(utr) && !/^(\d)\1{11}$/.test(utr) && utr !== '123456789012';
             const isDuplicate = (sc.paymentRequests || []).some(r => r.utr === utr && (r.status === 'approved' || r.status === 'pending'));
 
-            if (!isValidFormat || isDuplicate) {
+            if (!isValid12Digit || isDuplicate) {
                 if (fb) {
-                    fb.className = 'p-2.5 rounded-xl text-[11px] font-bold bg-rose-500/20 text-rose-200 border border-rose-400/40';
+                    fb.className = 'p-3 rounded-xl text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-200 border border-rose-500/35';
                     fb.textContent = isDuplicate
-                        ? '❌ This UTR reference is already submitted or used. Please enter a valid new 12-digit UTR.'
-                        : '❌ Invalid UTR format — Please complete UPI payment first and enter your valid 12-digit UTR / Transaction ID.';
+                        ? '❌ यह 12-Digit UTR नंबर पहले ही सबमिट किया जा चुका है। कृपया नया वैध UTR दर्ज करें।'
+                        : '❌ कृपया पूरा 12 अंकों का वैध UTR नंबर (12-Digit UTR) दर्ज करें।';
                 }
-                showToast('Please enter a valid 12-digit UTR number!', 'error');
+                showToast(isDuplicate ? 'This 12-digit UTR is already submitted!' : 'Please enter a valid 12-digit UTR number!', 'error');
+                document.getElementById('sub-checkout-utr-input')?.focus();
                 return;
             }
 
@@ -15585,12 +15520,235 @@ ${JSON.stringify(liveSnapshot)}`;
             updateSubscriptionStatusBadges();
             if (typeof renderAdminSubscriptionStudio === 'function') renderAdminSubscriptionStudio();
 
+            window._lastSubmittedSubscriptionUtr = {
+                planName: selectedCheckoutPlanName,
+                amount: finalAmt,
+                utr
+            };
+
+            const waUrl = buildNeoKhataSupportWhatsAppUrl('utr', {
+                planName: selectedCheckoutPlanName,
+                amount: finalAmt,
+                utr
+            });
+
             if (fb) {
-                fb.className = 'p-2.5 rounded-xl text-[11px] font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
-                fb.textContent = `⏳ UTR (${utr}) submitted for "${selectedCheckoutPlanName}" (₹${finalAmt}${validCouponCode ? ` • Coupon ${validCouponCode}` : ''})! Your plan will automatically unlock as soon as the Admin verifies & approves your payment.`;
+                fb.className = 'p-3 rounded-xl text-[11px] font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border border-emerald-500/35';
+                fb.innerHTML = `⏳ 12-Digit UTR (<strong>${utr}</strong>) submitted as <strong>Pending</strong> for <strong>${selectedCheckoutPlanName}</strong> (<strong>₹${finalAmt}</strong>${validCouponCode ? ` • Coupon ${validCouponCode}` : ''}). Your plan will activate once Admin verifies and approves it.`;
             }
+
+            // Reveal the post-submit WhatsApp card & update its href
+            const waLinkEl = document.getElementById('sub-post-utr-whatsapp-link');
+            const waSummaryEl = document.getElementById('sub-post-utr-whatsapp-summary');
+            const uniqueId = ensureResolvedUniqueIdForSupport();
+            if (waLinkEl) waLinkEl.href = waUrl;
+            if (waSummaryEl) {
+                waSummaryEl.textContent = `ID: ${uniqueId} • ${selectedCheckoutPlanName} (₹${finalAmt}) • UTR: ${utr}`;
+            }
+            waCard?.classList.remove('hidden');
+
             document.getElementById('sub-checkout-utr-input').value = '';
-            showToast('UTR submitted! Waiting for Admin verification & approval.');
+            handleSubscriptionUtrInput('');
+            showToast('12-Digit UTR submitted (Pending Approval)! Opening WhatsApp...');
+
+            // Automatically redirect to WhatsApp with the structured pre-written message
+            setTimeout(() => {
+                window.open(waUrl, '_blank', 'noopener,noreferrer');
+            }, 350);
+        }
+
+        function closeSubscriptionUpgradeModal() {
+            document.getElementById('subscription-upgrade-modal')?.classList.replace('flex', 'hidden');
+        }
+
+        function selectSubscriptionCheckoutPlan(planId, advanceToStep2 = false) {
+            const sc = ensureSubscriptionConfig();
+            const userKey = getCurrentUserSubKey();
+            const ov = sc.userOverrides[userKey] || {};
+            const pl = (sc.plans || []).find(p => p.id === planId);
+            if (!pl) return;
+            selectedCheckoutPlanId = pl.id;
+            selectedCheckoutPlanName = pl.name;
+            selectedCheckoutDays = Number(pl.days) || 30;
+            selectedCheckoutAmount = (ov.customPrice !== undefined && ov.customPrice !== null && ov.customPrice !== '' && (!ov.assignedPlanId || ov.assignedPlanId === pl.id))
+                ? Number(ov.customPrice)
+                : Number(pl.price);
+            openSubscriptionUpgradeModal('', advanceToStep2 ? 2 : 1);
+        }
+
+        function getPromoCouponLifecycleStatus(c) {
+            if (!c) return { valid: false, label: 'Invalid', badgeClass: 'bg-rose-500/15 text-rose-600' };
+            if (c.active === false) return { valid: false, label: 'Inactive', badgeClass: 'bg-neutral-300 text-neutral-700' };
+            const today = new Date().toISOString().slice(0, 10);
+            if (c.validFrom && today < c.validFrom) return { valid: false, label: 'Upcoming', badgeClass: 'bg-amber-500/15 text-amber-700' };
+            if (c.validUntil && today > c.validUntil) return { valid: false, label: 'Expired', badgeClass: 'bg-rose-500/15 text-rose-600' };
+            if (!c.isUnlimited && Number(c.maxUsageLimit) > 0 && Number(c.usedCount) >= Number(c.maxUsageLimit)) {
+                return { valid: false, label: 'Limit Reached', badgeClass: 'bg-rose-500/15 text-rose-600' };
+            }
+            return { valid: true, label: 'Active', badgeClass: 'bg-emerald-500/15 text-emerald-700' };
+        }
+
+        function validatePromoCouponForUser(c, userKey) {
+            if (!c) return { valid: false, message: 'Invalid promo coupon code.' };
+            const status = getPromoCouponLifecycleStatus(c);
+            if (!status.valid) return { valid: false, message: `Coupon "${c.code}" is ${status.label.toLowerCase()}.` };
+            const alreadyUsed = Array.isArray(c.usedByUsers) && c.usedByUsers.some(u => u.userKey === userKey);
+            if (alreadyUsed) return { valid: false, message: `You have already redeemed coupon "${c.code}".` };
+            return { valid: true, message: `Coupon "${c.code}" (${c.discountPct}% OFF) applied!` };
+        }
+
+        function applySubscriptionCheckoutCoupon() {
+            const sc = ensureSubscriptionConfig();
+            const code = (document.getElementById('sub-checkout-coupon-input')?.value || '').trim().toUpperCase();
+            const stEl = document.getElementById('sub-coupon-status-text');
+            if (!code) {
+                appliedCheckoutCouponCode = '';
+                appliedCheckoutDiscountPct = 0;
+                refreshSubscriptionCheckoutQr();
+                return;
+            }
+            const cObj = (sc.coupons || []).find(c => (c.code || '').toUpperCase() === code);
+            const check = validatePromoCouponForUser(cObj, getCurrentUserSubKey());
+            if (!check.valid) {
+                appliedCheckoutCouponCode = '';
+                appliedCheckoutDiscountPct = 0;
+                if (stEl) {
+                    stEl.className = 'text-[10px] font-bold text-rose-600';
+                    stEl.textContent = check.message;
+                }
+                refreshSubscriptionCheckoutQr();
+                showToast(check.message, 'error');
+                return;
+            }
+            appliedCheckoutCouponCode = cObj.code;
+            appliedCheckoutDiscountPct = Math.min(100, Math.max(1, Number(cObj.discountPct) || 0));
+            if (stEl) {
+                stEl.className = 'text-[10px] font-bold text-emerald-600';
+                stEl.textContent = check.message;
+            }
+            refreshSubscriptionCheckoutQr();
+            showToast(check.message);
+        }
+
+        function refreshSubscriptionCheckoutQr() {
+            const sc = ensureSubscriptionConfig();
+            const receiverUpi = sc.upiId || '6393954985@upi';
+            const baseAmt = Math.max(1, Math.round(Number(selectedCheckoutAmount) || 199));
+            const discountAmt = Math.round((baseAmt * appliedCheckoutDiscountPct) / 100);
+            const finalAmt = Math.max(1, baseAmt - discountAmt);
+
+            if (document.getElementById('sub-checkout-plan-summary')) {
+                document.getElementById('sub-checkout-plan-summary').textContent = `${selectedCheckoutPlanName} (${selectedCheckoutDays} Days) • ₹${finalAmt}`;
+            }
+            if (document.getElementById('sub-bill-base-amt')) document.getElementById('sub-bill-base-amt').textContent = `₹${baseAmt}`;
+            const discRow = document.getElementById('sub-bill-discount-row');
+            if (discRow) {
+                discRow.classList.toggle('hidden', discountAmt <= 0);
+                if (document.getElementById('sub-bill-discount-amt')) {
+                    document.getElementById('sub-bill-discount-amt').textContent = `-₹${discountAmt} (${appliedCheckoutCouponCode})`;
+                }
+            }
+            const appliedBadge = document.getElementById('sub-coupon-applied-badge');
+            if (appliedBadge) appliedBadge.classList.toggle('hidden', discountAmt <= 0);
+
+            if (document.getElementById('sub-bill-net-amt')) document.getElementById('sub-bill-net-amt').textContent = `₹${finalAmt}`;
+            if (document.getElementById('sub-checkout-pay-btn-amt')) document.getElementById('sub-checkout-pay-btn-amt').textContent = `₹${finalAmt}`;
+            if (document.getElementById('sub-checkout-upi-display')) document.getElementById('sub-checkout-upi-display').textContent = sc.merchantLabel || 'Verified Merchant';
+
+            const qrImg = document.getElementById('sub-checkout-qr-img');
+            if (qrImg) {
+                const upiUri = `upi://pay?pa=${encodeURIComponent(receiverUpi)}&pn=${encodeURIComponent('NeoKhata Pro')}&am=${finalAmt.toFixed(2)}&cu=INR&tn=${encodeURIComponent(selectedCheckoutPlanName)}`;
+                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUri)}`;
+            }
+        }
+
+        function getAdminSupportWhatsappNumber() {
+            const sc = ensureSubscriptionConfig();
+            const raw = String(sc.supportWhatsappNumber || adminConfig.supportWhatsappNumber || '916393954985').replace(/\D/g, '');
+            if (!raw) return '916393954985';
+            return raw.length === 10 ? `91${raw}` : raw;
+        }
+
+        function ensureResolvedUniqueIdForSupport() {
+            let neoId = typeof getCurrentUserNeoKhataId === 'function' ? getCurrentUserNeoKhataId() : '';
+            if (!isValidNeoKhataSystemId(neoId)) {
+                ensureAllUsersHaveUniqueNeoKhataIds();
+                neoId = typeof getCurrentUserNeoKhataId === 'function' ? getCurrentUserNeoKhataId() : '';
+            }
+            if (!isValidNeoKhataSystemId(neoId)) {
+                neoId = generateUniqueNeoKhataUserId();
+                if (!appState.userProfile) appState.userProfile = {};
+                appState.userProfile.neoUserId = neoId;
+                appState.neoUserId = neoId;
+                const sess = getAuthSession();
+                if (sess && sess.isLoggedIn) setAuthSession({ ...sess, neoUserId: neoId });
+                saveState(true);
+            }
+            return neoId;
+        }
+
+        function buildNeoKhataSupportWhatsAppUrl(context = 'support', overrides = {}) {
+            const sc = ensureSubscriptionConfig();
+            const userKey = getCurrentUserSubKey();
+            const access = getUserSubscriptionAccess(userKey);
+            const userName = getPrimaryUserName() || 'User';
+            const uniqueId = ensureResolvedUniqueIdForSupport();
+            const targetPhone = getAdminSupportWhatsappNumber();
+
+            const lastUtrObj = window._lastSubmittedSubscriptionUtr || {};
+            const latestUserReq = (sc.paymentRequests || []).find(r => r.userKey === userKey) || null;
+            const liveUtrInput = (document.getElementById('sub-checkout-utr-input')?.value || '').trim().toUpperCase();
+
+            let planLabel = overrides.planName || '';
+            let amountLabel = overrides.amount !== undefined && overrides.amount !== null ? `₹${overrides.amount}` : '';
+            let utrLabel = overrides.utr || '';
+
+            if (context === 'utr') {
+                const baseAmt = Math.max(1, Math.round(Number(selectedCheckoutAmount) || 199));
+                const discountAmt = Math.round((baseAmt * appliedCheckoutDiscountPct) / 100);
+                const netAmt = Math.max(1, baseAmt - discountAmt);
+                planLabel = planLabel || selectedCheckoutPlanName || lastUtrObj.planName || latestUserReq?.planName || access.planName || 'Pro Plan';
+                amountLabel = amountLabel || `₹${lastUtrObj.amount || netAmt}`;
+                utrLabel = utrLabel || liveUtrInput || lastUtrObj.utr || latestUserReq?.utr || 'Pending UTR Entry';
+            } else {
+                planLabel = planLabel || access.planName || 'Free Plan';
+                if (!amountLabel) {
+                    if (latestUserReq && latestUserReq.status === 'pending') {
+                        amountLabel = `₹${latestUserReq.amount} (Pending Approval)`;
+                    } else if (access.isVipFree) {
+                        amountLabel = '₹0 (Free VIP)';
+                    } else if (access.isPro) {
+                        amountLabel = access.customPrice !== null ? `₹${access.customPrice} (Active)` : 'Active Subscription';
+                    } else {
+                        amountLabel = '₹0 (Free Tier)';
+                    }
+                }
+                utrLabel = utrLabel || (latestUserReq?.utr ? `${latestUserReq.utr} (${latestUserReq.status})` : 'Not Applicable / Support Query');
+            }
+
+            const headerTitle = context === 'utr'
+                ? '*NeoKhata Subscription Payment Verification*'
+                : '*NeoKhata Support & Help Request*';
+
+            const messageText = [
+                headerTitle,
+                `1) User Name: ${userName}`,
+                `2) Unique User ID: ${uniqueId}`,
+                `3) Plan: ${planLabel}`,
+                `4) Amount: ${amountLabel}`,
+                `5) UTR Number: ${utrLabel}`,
+                ``,
+                context === 'utr'
+                    ? `Please verify my UTR payment and activate my NeoKhata Pro plan.`
+                    : `Please assist me with my NeoKhata account.`
+            ].join('\n');
+
+            return `https://wa.me/${targetPhone}?text=${encodeURIComponent(messageText)}`;
+        }
+
+        function openNeoKhataWhatsAppSupport(context = 'support', overrides = {}) {
+            const waUrl = buildNeoKhataSupportWhatsAppUrl(context, overrides);
+            window.open(waUrl, '_blank', 'noopener,noreferrer');
         }
 
         let expandedAdminCouponUsersIdx = -1;
@@ -15611,6 +15769,7 @@ ${JSON.stringify(liveSnapshot)}`;
         function renderAdminSubscriptionStudio() {
             const sc = ensureSubscriptionConfig();
             if (document.getElementById('adm-sub-upi-id')) document.getElementById('adm-sub-upi-id').value = sc.upiId || '6393954985@upi';
+            if (document.getElementById('adm-sub-support-whatsapp')) document.getElementById('adm-sub-support-whatsapp').value = sc.supportWhatsappNumber || '916393954985';
             if (document.getElementById('adm-sub-merchant-label')) document.getElementById('adm-sub-merchant-label').value = sc.merchantLabel || 'NeoKhata Verified Merchant Gateway';
             if (document.getElementById('adm-sub-free-tx-limit')) document.getElementById('adm-sub-free-tx-limit').value = sc.freeTxLimit ?? 25;
             if (document.getElementById('adm-sub-free-cust-limit')) document.getElementById('adm-sub-free-cust-limit').value = sc.freeCustLimit ?? 5;
@@ -15629,17 +15788,16 @@ ${JSON.stringify(liveSnapshot)}`;
                         ? `Used: ${used} • Unlimited`
                         : `Used: ${used} / ${maxLim} • ${remUses} Left`;
                     const dateSummary = (c.validFrom || c.validUntil)
-                        ? `${c.validFrom || 'Start'} → ${c.validUntil || 'No End'}`
-                        : 'Always Valid (No Date Limit)';
+                        ? `${c.validFrom || 'Now'} → ${c.validUntil || 'No Expiry'}`
+                        : 'Always Valid';
                     const logs = Array.isArray(c.usedByUsers) ? c.usedByUsers : [];
                     const isExpanded = expandedAdminCouponUsersIdx === idx;
-
                     return `
-                        <div class="p-3 rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90 border border-neutral-200 dark:border-neutral-700 space-y-2 text-[11px]">
+                        <div class="p-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 space-y-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="px-2 py-0.5 rounded-lg bg-purple-600 text-white font-mono font-black text-xs">${c.code}</span>
-                                    <span class="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-black text-[10px]">${c.discountPct}% OFF</span>
+                                    <span class="px-2 py-0.5 rounded-lg bg-purple-600 text-white font-mono font-black text-[11px]">${c.code}</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-black text-[9px]">${c.discountPct}% OFF</span>
                                     <span class="px-2 py-0.5 rounded-full font-black text-[9px] uppercase ${statusInfo.badgeClass}">${statusInfo.label}</span>
                                 </div>
                                 <div class="flex items-center gap-1.5">
@@ -15856,9 +16014,9 @@ ${JSON.stringify(liveSnapshot)}`;
                                 UTR / Ref No: <strong class="px-1.5 py-0.5 rounded bg-white dark:bg-neutral-900 border select-all text-emerald-700 dark:text-emerald-300">${r.utr}</strong> • ${new Date(r.createdAt).toLocaleString('en-IN')}
                             </div>
                         </div>
-                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <div class="flex items-center gap-1.5 flex-wrap flex-shrink-0">
                             <span class="px-2 py-0.5 rounded-full font-black text-[9px] uppercase ${isApproved ? 'bg-emerald-500/15 text-emerald-600' : (isPending ? 'bg-amber-500 text-white animate-pulse' : 'bg-rose-500/15 text-rose-600')}">${r.status}</span>
-                            ${!isApproved ? `<button type="button" onclick="handleAdminSubscriptionRequestAction('${r.id}', 'approved')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] shadow-xs flex items-center gap-1"><i class="fa-solid fa-check"></i> Accept &amp; Activate</button>` : ''}
+                            ${!isApproved ? `<button type="button" onclick="handleAdminSubscriptionRequestAction('${r.id}', 'approved')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] shadow-xs flex items-center gap-1"><i class="fa-solid fa-check"></i> Approve</button>` : ''}
                             ${isPending ? `<button type="button" onclick="handleAdminSubscriptionRequestAction('${r.id}', 'rejected')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] shadow-xs flex items-center gap-1"><i class="fa-solid fa-xmark"></i> Reject</button>` : ''}
                             ${isApproved ? `<button type="button" onclick="handleAdminSubscriptionRequestAction('${r.id}', 'rejected')" class="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-black text-[10px]">Revoke</button>` : ''}
                         </div>
@@ -15871,17 +16029,19 @@ ${JSON.stringify(liveSnapshot)}`;
         function saveAdminSubscriptionConfig() {
             const sc = ensureSubscriptionConfig();
             const upiVal = document.getElementById('adm-sub-upi-id')?.value.trim();
+            const waVal = (document.getElementById('adm-sub-support-whatsapp')?.value || '').replace(/\D/g, '');
             const merchVal = document.getElementById('adm-sub-merchant-label')?.value.trim();
             const txLim = parseInt(document.getElementById('adm-sub-free-tx-limit')?.value, 10);
             const custLim = parseInt(document.getElementById('adm-sub-free-cust-limit')?.value, 10);
             if (upiVal) sc.upiId = upiVal;
+            if (waVal) sc.supportWhatsappNumber = waVal.length === 10 ? `91${waVal}` : waVal;
             if (merchVal) sc.merchantLabel = merchVal;
             if (!isNaN(txLim) && txLim > 0) sc.freeTxLimit = txLim;
             if (!isNaN(custLim) && custLim > 0) sc.freeCustLimit = custLim;
             localStorage.setItem('khataflow_admin_config', JSON.stringify(adminConfig));
             updateSubscriptionStatusBadges();
             saveAllAdminChangesLive();
-            showToast('Subscription rules & UPI gateway settings saved!');
+            showToast('Subscription rules, UPI & Support WhatsApp settings saved!');
         }
 
         function toggleAdminSubscriptionFeature(fKey) {
@@ -16266,12 +16426,14 @@ ${JSON.stringify(liveSnapshot)}`;
                     markAffiliateReferralDoneOnPlanPurchase(req.userKey, req.planName, req.amount);
                 }
 
+                recordAdminAuditLog('UTR Approved', req.userName || req.userKey, `UTR ${req.utr} • ${req.planName} (${validDays}d) • ₹${req.amount}`);
                 showToast(`Approved UTR ${req.utr} & activated ${req.planName} (${validDays} Days) for ${req.userName}!`);
             } else {
                 if (sc.userOverrides[req.userKey]) {
                     sc.userOverrides[req.userKey].expiresAt = '';
                 }
-                showToast(`Rejected / Revoked request for ${req.userName}`, 'error');
+                recordAdminAuditLog('UTR Rejected', req.userName || req.userKey, `UTR ${req.utr} rejected — plan not activated`);
+                showToast(`Rejected request (UTR ${req.utr}) for ${req.userName} — plan not activated`, 'error');
             }
             safeLocalStorageSet('khataflow_admin_config', JSON.stringify(adminConfig));
             renderAdminSubscriptionStudio();
